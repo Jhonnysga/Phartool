@@ -112,7 +112,7 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
 
-    # app/build.gradle con ZXing
+    # app/build.gradle con Google Play Services Code Scanner
     with open(os.path.join(project_dir, "app/build.gradle"), "w") as f:
         f.write(f"""plugins {{
     id 'com.android.application'
@@ -145,7 +145,7 @@ dependencies {{
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
+    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'org.json:json:20230227'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
@@ -174,6 +174,9 @@ dependencies {{
         android:icon="@mipmap/ic_pharmatools"
         android:roundIcon="@mipmap/ic_pharmatools"
         android:usesCleartextTraffic="true">
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="barcode_ui" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -393,7 +396,7 @@ dependencies {{
             f.write(content)
         print(f"  ✅ {name}")
 
-    # Clases Java (con ZXing corregido)
+    # Clases Java
     java_files = {
         "Producto.java": """
 package com.pharmatools.inventario;
@@ -857,11 +860,10 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
-import com.journeyapps.barcodescanner.ScanContract;
-import com.journeyapps.barcodescanner.ScanOptions;
+import com.google.android.gms.tasks.Task;
+import com.google.mlkit.vision.barcode.common.Barcode;
+import com.google.android.gms.code_scanner.GmsBarcodeScanner;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -869,6 +871,7 @@ public class ControlEtiquetadoActivity extends AppCompatActivity {
     private static final String PREFS_NAME = "PharmatoolsPrefs", KEY_MAC = "mac_impresora";
     private DatabaseHelper dbHelper;
     private BluetoothPrinterService printerService;
+    private GmsBarcodeScanner scanner;
     private TextView tvDescripcion, tvPrecio, tvEstado;
     private EditText etBusqueda;
     private ListView lvResultados;
@@ -877,16 +880,7 @@ public class ControlEtiquetadoActivity extends AppCompatActivity {
     private List<Producto> productosEncontrados = new ArrayList<>();
     private ArrayAdapter<String> adapter;
     private SharedPreferences prefs;
-
-    private final ActivityResultLauncher<ScanOptions> barcodeLauncher =
-            registerForActivityResult(new ScanContract(),
-                    result -> {
-                        if (result.getContents() != null) {
-                            procesarCodigo(result.getContents());
-                        } else {
-                            Toast.makeText(ControlEtiquetadoActivity.this, "Escaneo cancelado", Toast.LENGTH_SHORT).show();
-                        }
-                    });
+    private boolean isScanning = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -894,6 +888,7 @@ public class ControlEtiquetadoActivity extends AppCompatActivity {
         setContentView(R.layout.activity_control_etiquetado);
         dbHelper = new DatabaseHelper(this);
         printerService = new BluetoothPrinterService();
+        scanner = GmsBarcodeScanner.getInstance(this);
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         tvDescripcion = findViewById(R.id.tvDescripcion);
         tvPrecio = findViewById(R.id.tvPrecio);
@@ -934,16 +929,6 @@ public class ControlEtiquetadoActivity extends AppCompatActivity {
         btnVolver.setOnClickListener(v -> finish());
     }
 
-    private void iniciarEscaneo() {
-        ScanOptions options = new ScanOptions();
-        options.setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES);
-        options.setPrompt("Escanea el código de barras");
-        options.setCameraId(0);
-        options.setBeepEnabled(true);
-        options.setBarcodeImageEnabled(true);
-        barcodeLauncher.launch(options);
-    }
-
     private void buscarProductos(String query) {
         if (query.length() < 2) { lvResultados.setVisibility(android.view.View.GONE); return; }
         productosEncontrados = dbHelper.buscarProductos(query);
@@ -963,6 +948,20 @@ public class ControlEtiquetadoActivity extends AppCompatActivity {
         tvPrecio.setText("💰 Precio: " + String.format("%.2f", p.getPrecio()).replace('.', ','));
         tvEstado.setText("🔍 Verifica físicamente. ¿Está igual?");
         btnOk.setEnabled(true); btnImprimir.setEnabled(true); btnGenerarCodigo.setEnabled(true);
+    }
+
+    private void iniciarEscaneo() {
+        if (isScanning) return;
+        isScanning = true;
+        Task<Barcode> task = scanner.startScan();
+        task.addOnSuccessListener(barcode -> {
+            String codigo = barcode.getRawValue();
+            procesarCodigo(codigo);
+            isScanning = false;
+        }).addOnFailureListener(e -> {
+            Toast.makeText(this, "Error al escanear", Toast.LENGTH_SHORT).show();
+            isScanning = false;
+        });
     }
 
     private void procesarCodigo(String codigo) {
@@ -1018,34 +1017,27 @@ import android.os.Handler;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
-import com.journeyapps.barcodescanner.ScanContract;
-import com.journeyapps.barcodescanner.ScanOptions;
+import com.google.android.gms.tasks.Task;
+import com.google.mlkit.vision.barcode.common.Barcode;
+import com.google.android.gms.code_scanner.GmsBarcodeScanner;
 
 public class EtiquetadoDirectoActivity extends AppCompatActivity {
     private static final String PREFS_NAME = "PharmatoolsPrefs", KEY_MAC = "mac_impresora";
     private DatabaseHelper dbHelper;
     private BluetoothPrinterService printerService;
+    private GmsBarcodeScanner scanner;
     private TextView tvEstado;
     private Button btnVolver;
     private SharedPreferences prefs;
-    private boolean isPrinting = false;
+    private boolean isScanning = false, isPrinting = false;
     private int intentosFallidos = 0;
     private static final int MAX_INTENTOS_FALLIDOS = 2;
+    private static final int TIMEOUT_ESCANEO = 15000;
+    private static final int PAUSA_POST_ESCANEO = 500;
+    private static final int PAUSA_POST_IMPRESION = 2000;
     private Handler handler = new Handler();
-
-    private final ActivityResultLauncher<ScanOptions> barcodeLauncher =
-            registerForActivityResult(new ScanContract(),
-                    result -> {
-                        if (result.getContents() != null) {
-                            procesarCodigo(result.getContents());
-                        } else {
-                            Toast.makeText(EtiquetadoDirectoActivity.this, "Escaneo cancelado", Toast.LENGTH_SHORT).show();
-                            handler.postDelayed(() -> { if (!isFinishing()) iniciarEscaneo(); }, 500);
-                        }
-                    });
+    private Runnable timeoutRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -1053,6 +1045,7 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
         setContentView(R.layout.activity_etiquetado_directo);
         dbHelper = new DatabaseHelper(this);
         printerService = new BluetoothPrinterService();
+        scanner = GmsBarcodeScanner.getInstance(this);
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         tvEstado = findViewById(R.id.tvEstadoDirecto);
         btnVolver = findViewById(R.id.btnVolverDirecto);
@@ -1063,17 +1056,40 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
     private void iniciarCicloEscaneo() {
         intentosFallidos = 0;
         tvEstado.setText("📷 Escanea un código para imprimir...");
-        handler.postDelayed(this::iniciarEscaneo, 300);
+        handler.postDelayed(this::iniciarEscaneoConTimeout, 300);
     }
 
-    private void iniciarEscaneo() {
-        ScanOptions options = new ScanOptions();
-        options.setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES);
-        options.setPrompt("Escanea el código de barras");
-        options.setCameraId(0);
-        options.setBeepEnabled(true);
-        options.setBarcodeImageEnabled(true);
-        barcodeLauncher.launch(options);
+    private void iniciarEscaneoConTimeout() {
+        if (isScanning) return;
+        isScanning = true;
+        timeoutRunnable = () -> {
+            if (isScanning) {
+                isScanning = false;
+                tvEstado.setText("⏰ Tiempo de escaneo agotado");
+                Toast.makeText(EtiquetadoDirectoActivity.this, "No se detectó escaneo. Volviendo al menú.", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        };
+        handler.postDelayed(timeoutRunnable, TIMEOUT_ESCANEO);
+        Task<Barcode> task = scanner.startScan();
+        task.addOnSuccessListener(barcode -> {
+            handler.removeCallbacks(timeoutRunnable);
+            isScanning = false;
+            String codigo = barcode.getRawValue();
+            handler.postDelayed(() -> procesarCodigo(codigo), PAUSA_POST_ESCANEO);
+        }).addOnFailureListener(e -> {
+            handler.removeCallbacks(timeoutRunnable);
+            isScanning = false;
+            intentosFallidos++;
+            if (intentosFallidos >= MAX_INTENTOS_FALLIDOS) {
+                tvEstado.setText("❌ Error al escanear. Volviendo al menú.");
+                Toast.makeText(EtiquetadoDirectoActivity.this, "Error al escanear. Volviendo al menú.", Toast.LENGTH_SHORT).show();
+                handler.postDelayed(this::finish, 1000);
+            } else {
+                tvEstado.setText("⚠️ Error al escanear. Reintentando... (" + intentosFallidos + "/" + MAX_INTENTOS_FALLIDOS + ")");
+                handler.postDelayed(this::iniciarCicloEscaneo, 1500);
+            }
+        });
     }
 
     private void procesarCodigo(String codigo) {
@@ -1082,12 +1098,12 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
             intentosFallidos++;
             if (intentosFallidos >= MAX_INTENTOS_FALLIDOS) {
                 tvEstado.setText("❌ Producto no encontrado: " + codigo + ". Volviendo al menú.");
-                Toast.makeText(this, "Producto no encontrado. Volviendo al menú.", Toast.LENGTH_SHORT).show();
-                handler.postDelayed(() -> finish(), 1500);
+                Toast.makeText(EtiquetadoDirectoActivity.this, "Producto no encontrado. Volviendo al menú.", Toast.LENGTH_SHORT).show();
+                handler.postDelayed(this::finish, 1500);
                 return;
             }
             tvEstado.setText("⚠️ Producto no encontrado. Reintentando... (" + intentosFallidos + "/" + MAX_INTENTOS_FALLIDOS + ")");
-            handler.postDelayed(this::iniciarEscaneo, 1500);
+            handler.postDelayed(this::iniciarCicloEscaneo, 1500);
             return;
         }
         intentosFallidos = 0;
@@ -1105,7 +1121,7 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
             tvEstado.setText("❌ Bluetooth no disponible");
             Toast.makeText(this, "Bluetooth no disponible", Toast.LENGTH_SHORT).show();
             isPrinting = false;
-            handler.postDelayed(() -> finish(), 1000);
+            handler.postDelayed(this::finish, 1000);
             return;
         }
         printerService.print(adapter.getRemoteDevice(mac), tspl, new BluetoothPrinterService.Callback() {
@@ -1114,7 +1130,12 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
                     Toast.makeText(EtiquetadoDirectoActivity.this, "🏷️ Etiqueta impresa", Toast.LENGTH_SHORT).show();
                     isPrinting = false;
                     tvEstado.setText("✅ Etiqueta impresa. Escanea otro producto.");
-                    handler.postDelayed(() -> { if (!isFinishing()) { intentosFallidos = 0; iniciarEscaneo(); } }, 2000);
+                    handler.postDelayed(() -> {
+                        if (!isFinishing()) {
+                            intentosFallidos = 0;
+                            iniciarCicloEscaneo();
+                        }
+                    }, PAUSA_POST_IMPRESION);
                 });
             }
             @Override public void onError(String error) {
@@ -1122,7 +1143,7 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
                     tvEstado.setText("❌ Error: " + error);
                     Toast.makeText(EtiquetadoDirectoActivity.this, "Error al imprimir: " + error, Toast.LENGTH_SHORT).show();
                     isPrinting = false;
-                    handler.postDelayed(() -> finish(), 1500);
+                    handler.postDelayed(this::finish, 1500);
                 });
             }
         });
@@ -1130,6 +1151,7 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
 
     @Override protected void onDestroy() {
         super.onDestroy();
+        handler.removeCallbacks(timeoutRunnable);
         handler.removeCallbacksAndMessages(null);
     }
 }
