@@ -74,30 +74,15 @@ def create_project():
     download_wrapper_jar(os.path.join(project_dir, "gradle/wrapper"))
 
     # ===== COPIAR AAR DESDE EL REPOSITORIO =====
-    aar_src = None
-    posibles_ubicaciones = [
-        os.path.join(os.getcwd(), "app/libs/play-services-code-scanner.aar"),
-        os.path.join(os.getcwd(), "app/libs/play-services-code-scanner-16.1.0.aar"),
-        os.path.join(os.getcwd(), "play-services-code-scanner.aar"),
-        os.path.join(os.getcwd(), "libs/play-services-code-scanner.aar")
-    ]
-    
-    for ubicacion in posibles_ubicaciones:
-        if os.path.exists(ubicacion) and os.path.getsize(ubicacion) > 1000:
-            aar_src = ubicacion
-            break
-    
+    aar_src = os.path.join(os.getcwd(), "app/libs/play-services-code-scanner.aar")
     aar_dst = os.path.join(project_dir, "app/libs/play-services-code-scanner.aar")
     
-    if aar_src:
+    if os.path.exists(aar_src) and os.path.getsize(aar_src) > 1000:
         shutil.copy2(aar_src, aar_dst)
         print(f"  ✅ play-services-code-scanner.aar copiado desde: {aar_src}")
         print(f"  📦 Tamaño: {os.path.getsize(aar_src)} bytes")
     else:
-        print("  ❌ ERROR CRÍTICO: No se encontró el AAR")
-        print("  ❌ Asegúrate de tener el archivo en tu repositorio:")
-        print("  ❌ app/libs/play-services-code-scanner.aar")
-        sys.exit(1)
+        print("  ⚠️ AAR no encontrado en el repositorio. Se descargará en el workflow.")
 
     # ===== ICONO =====
     icon_path = os.path.join(project_dir, "app/src/main/res/mipmap-hdpi", "ic_pharmatools.png")
@@ -141,9 +126,6 @@ dependencyResolutionManagement {{
     repositories {{
         google()
         mavenCentral()
-        flatDir {{
-            dirs 'libs'
-        }}
     }}
 }}
 rootProject.name = "{PROJECT_NAME}"
@@ -166,7 +148,7 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
 
-    # ===== app/build.gradle - CON AAR LOCAL Y flatDir =====
+    # ===== app/build.gradle - CON DEPENDENCIAS COMPLETAS =====
     with open(os.path.join(project_dir, "app/build.gradle"), "w") as f:
         f.write(f"""plugins {{
     id 'com.android.application'
@@ -195,22 +177,13 @@ android {{
     }}
 }}
 
-repositories {{
-    google()
-    mavenCentral()
-    flatDir {{
-        dirs 'libs'
-    }}
-}}
-
 dependencies {{
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     
-    // ESCÁNER DE GOOGLE PLAY SERVICES (desde AAR local)
-    implementation files('libs/play-services-code-scanner.aar')
-    
+    // TODAS LAS DEPENDENCIAS DE GOOGLE PLAY SERVICES
+    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
     implementation 'com.google.android.gms:play-services-base:18.3.0'
     implementation 'com.google.android.gms:play-services-basement:18.3.0'
     implementation 'com.google.android.gms:play-services-tasks:18.1.0'
@@ -329,7 +302,7 @@ dependencies {{
         f.write(strings_xml)
     print("  ✅ strings.xml")
 
-    # ===== LAYOUTS =====
+    # ===== LAYOUTS (COMPLETO) =====
     layouts = {
         "activity_main.xml": """<?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
@@ -567,7 +540,7 @@ dependencies {{
             f.write(content)
         print(f"  ✅ {name}")
 
-    # ===== CLASES JAVA =====
+    # ===== CLASES JAVA (COMPLETO) =====
     java_files = {
         "Producto.java": """
 package com.pharmatools.inventario;
