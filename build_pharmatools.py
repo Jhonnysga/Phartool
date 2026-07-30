@@ -16,7 +16,6 @@ TARGET_SDK = 33
 MIN_SDK = 29
 
 def download_wrapper_jar(dest_dir):
-    """Descarga gradle-wrapper.jar si no existe"""
     jar_path = os.path.join(dest_dir, "gradle-wrapper.jar")
     if os.path.exists(jar_path):
         print("  ✅ gradle-wrapper.jar ya existe")
@@ -36,7 +35,6 @@ def download_aar(dest_dir):
     """Descarga play-services-code-scanner.aar desde Maven Central"""
     aar_path = os.path.join(dest_dir, "play-services-code-scanner.aar")
     
-    # Si ya existe y tiene un tamaño razonable, no lo descargamos
     if os.path.exists(aar_path) and os.path.getsize(aar_path) > 1000:
         print(f"  ✅ play-services-code-scanner.aar ya existe (tamaño: {os.path.getsize(aar_path)} bytes)")
         return
@@ -44,7 +42,6 @@ def download_aar(dest_dir):
     print("  ⬇️ Descargando play-services-code-scanner.aar desde Maven Central...")
     os.makedirs(dest_dir, exist_ok=True)
     
-    # Lista de URLs para intentar (múltiples mirrors)
     urls = [
         "https://repo1.maven.org/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar",
         "https://maven.google.com/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar",
@@ -62,7 +59,6 @@ def download_aar(dest_dir):
             print(f"  ⚠️ Falló descarga desde {url}: {e}")
             continue
     
-    # Si llegamos aquí, todas las descargas fallaron
     print("  ❌ ERROR CRÍTICO: No se pudo descargar el AAR")
     print("  ❌ Por favor, descarga manualmente desde:")
     print("  ❌ https://repo1.maven.org/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar")
@@ -70,14 +66,12 @@ def download_aar(dest_dir):
     sys.exit(1)
 
 def create_icon_png():
-    """Crea el ícono de la aplicación"""
     img = Image.new('RGB', (192, 192), color='#38B2AC')
     draw = ImageDraw.Draw(img)
     draw.text((65, 65), "PT", fill='white')
     return img
 
 def create_logo_xml():
-    """Crea el logo vectorial de la aplicación"""
     return '''<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="120dp"
@@ -96,7 +90,6 @@ def create_logo_xml():
 </vector>'''
 
 def create_project():
-    """Crea todo el proyecto Android"""
     project_dir = os.path.join(os.getcwd(), PROJECT_NAME)
     if os.path.exists(project_dir):
         shutil.rmtree(project_dir)
@@ -104,7 +97,7 @@ def create_project():
 
     print(f"  📁 Creando proyecto en: {project_dir}")
     
-    # ===== CREAR ESTRUCTURA DE CARPETAS =====
+    # ===== CREAR ESTRUCTURA =====
     os.makedirs(os.path.join(project_dir, "app/src/main/java", PACKAGE_PATH))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/layout"))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/values"))
@@ -135,7 +128,7 @@ def create_project():
         f.write(create_logo_xml())
     print("  ✅ logo_pharmatools.xml")
 
-    # ===== ARCHIVOS GRADLE =====
+    # ===== GRADLE FILES =====
     with open(os.path.join(project_dir, "build.gradle"), "w") as f:
         f.write("""// Top-level build file
 plugins {
@@ -182,7 +175,7 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
 
-    # app/build.gradle - CON AAR LOCAL
+    # app/build.gradle - CON AAR LOCAL Y DEPENDENCIAS DE COMPILACIÓN FORZADAS
     with open(os.path.join(project_dir, "app/build.gradle"), "w") as f:
         f.write(f"""plugins {{
     id 'com.android.application'
@@ -217,7 +210,11 @@ dependencies {{
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     
     // ESCÁNER DE GOOGLE PLAY SERVICES (desde AAR local)
+    // FORZAR LA INCLUSIÓN EN EL CLASSPATH
     implementation files('libs/play-services-code-scanner.aar')
+    compileOnly files('libs/play-services-code-scanner.aar')
+    api files('libs/play-services-code-scanner.aar')
+    
     implementation 'com.google.android.gms:play-services-base:18.3.0'
     implementation 'com.google.android.gms:play-services-basement:18.3.0'
     implementation 'com.google.android.gms:play-services-tasks:18.1.0'
@@ -227,6 +224,23 @@ dependencies {{
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.google.code.gson:gson:2.10.1'
 }}
+
+// FORZAR QUE EL AAR SE INCLUYA EN EL CLASSPATH
+task copyAarToClasspath {{
+    doLast {{
+        def aarFile = file('libs/play-services-code-scanner.aar')
+        if (aarFile.exists()) {{
+            println "✅ AAR encontrado: " + aarFile.absolutePath
+            println "📦 Tamaño: " + aarFile.length()
+        }} else {{
+            println "❌ AAR NO ENCONTRADO"
+        }}
+    }}
+}}
+
+preBuild.dependsOn copyAarToClasspath
+compileDebugJavaWithJavac.dependsOn copyAarToClasspath
+compileReleaseJavaWithJavac.dependsOn copyAarToClasspath
 """)
 
     # ===== ANDROID MANIFEST =====
