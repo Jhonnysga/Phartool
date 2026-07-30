@@ -42,6 +42,13 @@ jobs:
     - name: 📁 Generar proyecto con Python
       run: python3 build_pharmatools.py
 
+    - name: ✅ Verificar archivos AAR
+      run: |
+        echo "=== Contenido de app/libs ==="
+        ls -la PharmaTools_Inventario/app/libs/
+        echo "=== Tamaño del AAR ==="
+        du -h PharmaTools_Inventario/app/libs/play-services-code-scanner.aar || echo "AAR no encontrado"
+
     - name: ✅ Configurar Gradle Wrapper
       run: |
         cd PharmaTools_Inventario
