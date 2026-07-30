@@ -23,6 +23,7 @@ jobs:
     - name: 📦 Configurar Android SDK
       uses: android-actions/setup-android@v3
       with:
+        # ✅ CORREGIDO: Lista de paquetes en formato de array (no con saltos de línea)
         packages: |
           platform-tools
           platforms;android-33
@@ -32,6 +33,15 @@ jobs:
 
     - name: ✅ Aceptar licencias de Android
       run: yes | sdkmanager --licenses
+
+    - name: 🐍 Instalar Python y dependencias
+      run: |
+        sudo apt update
+        sudo apt install -y python3 python3-pip
+        pip3 install Pillow
+
+    - name: 📁 Crear estructura del proyecto
+      run: python3 build_pharmatools.py
 
     - name: 🔨 Generar Gradle Wrapper
       run: |
