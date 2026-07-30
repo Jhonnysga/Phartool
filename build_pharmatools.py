@@ -175,7 +175,7 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
 
-    # app/build.gradle - CON AAR LOCAL Y DEPENDENCIAS DE COMPILACIÓN FORZADAS
+    # app/build.gradle - CON AAR LOCAL Y DEPENDENCIAS CORRECTAS
     with open(os.path.join(project_dir, "app/build.gradle"), "w") as f:
         f.write(f"""plugins {{
     id 'com.android.application'
@@ -210,10 +210,7 @@ dependencies {{
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     
     // ESCÁNER DE GOOGLE PLAY SERVICES (desde AAR local)
-    // FORZAR LA INCLUSIÓN EN EL CLASSPATH
     implementation files('libs/play-services-code-scanner.aar')
-    compileOnly files('libs/play-services-code-scanner.aar')
-    api files('libs/play-services-code-scanner.aar')
     
     implementation 'com.google.android.gms:play-services-base:18.3.0'
     implementation 'com.google.android.gms:play-services-basement:18.3.0'
@@ -224,23 +221,6 @@ dependencies {{
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.google.code.gson:gson:2.10.1'
 }}
-
-// FORZAR QUE EL AAR SE INCLUYA EN EL CLASSPATH
-task copyAarToClasspath {{
-    doLast {{
-        def aarFile = file('libs/play-services-code-scanner.aar')
-        if (aarFile.exists()) {{
-            println "✅ AAR encontrado: " + aarFile.absolutePath
-            println "📦 Tamaño: " + aarFile.length()
-        }} else {{
-            println "❌ AAR NO ENCONTRADO"
-        }}
-    }}
-}}
-
-preBuild.dependsOn copyAarToClasspath
-compileDebugJavaWithJavac.dependsOn copyAarToClasspath
-compileReleaseJavaWithJavac.dependsOn copyAarToClasspath
 """)
 
     # ===== ANDROID MANIFEST =====
