@@ -20,7 +20,7 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: 📦 Instalar Android SDK (con TODAS las licencias)
+    - name: 📦 Instalar Android SDK
       run: |
         sudo apt update
         sudo apt install -y wget unzip curl
@@ -30,11 +30,7 @@ jobs:
         sudo mv /usr/local/lib/android/sdk/cmdline-tools/cmdline-tools /usr/local/lib/android/sdk/cmdline-tools/16.0
         echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
         echo "PATH=$PATH:/usr/local/lib/android/sdk/cmdline-tools/16.0/bin:/usr/local/lib/android/sdk/platform-tools" >> $GITHUB_ENV
-
-        # Aceptar TODAS las licencias
         yes | /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-
-        # Instalar TODO lo necesario
         /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" "extras;google;m2repository" "extras;android;m2repository" > /dev/null 2>&1
 
     - name: 🐍 Python y Pillow
@@ -46,7 +42,7 @@ jobs:
     - name: 📁 Generar proyecto con Python
       run: python3 build_pharmatools.py
 
-    - name: ✅ Verificar Gradle Wrapper
+    - name: ✅ Configurar Gradle Wrapper
       run: |
         cd PharmaTools_Inventario
         if [ ! -f "gradle/wrapper/gradle-wrapper.jar" ]; then
@@ -54,19 +50,16 @@ jobs:
         fi
         chmod +x gradlew
 
-    - name: 📥 FORZAR DESCARGA DE DEPENDENCIAS
+    - name: 📥 Forzar descarga de dependencias
       run: |
         cd PharmaTools_Inventario
-        echo "=== FORZANDO DESCARGA DE DEPENDENCIAS ==="
         rm -rf ~/.gradle/caches/
         rm -rf .gradle
         ./gradlew --refresh-dependencies dependencies || true
-        ./gradlew forceDownloadDependencies --refresh-dependencies || true
 
-    - name: 🚀 COMPILAR APK
+    - name: 🚀 Compilar APK
       run: |
         cd PharmaTools_Inventario
-        echo "=== COMPILANDO APK ==="
         ./gradlew clean assembleDebug --refresh-dependencies --no-build-cache --stacktrace
       env:
         ANDROID_HOME: /usr/local/lib/android/sdk
@@ -84,7 +77,6 @@ jobs:
         if [ -f "$APK" ]; then 
           echo "✅ APK generado exitosamente!"
           echo "📦 Tamaño: $(du -h $APK | cut -f1)"
-          echo "📁 Ubicación: $APK"
         else 
           echo "❌ Error: APK no encontrado"
           exit 1
