@@ -42,7 +42,16 @@ jobs:
     - name: 📁 Generar proyecto con Python
       run: python3 build_pharmatools.py
 
-    - name: 🧹 Limpiar caché de Gradle y forzar descarga
+    - name: ✅ Verificar Gradle Wrapper
+      run: |
+        cd PharmaTools_Inventario
+        if [ ! -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+          echo "❌ gradle-wrapper.jar no encontrado, descargando..."
+          wget -q https://github.com/gradle/gradle/raw/v7.5.0/gradle/wrapper/gradle-wrapper.jar -O gradle/wrapper/gradle-wrapper.jar
+        fi
+        chmod +x gradlew
+
+    - name: 🧹 Limpiar caché de Gradle
       run: |
         cd PharmaTools_Inventario
         rm -rf ~/.gradle/caches/
