@@ -23,7 +23,7 @@ jobs:
     - name: 📦 Instalar Android SDK
       run: |
         sudo apt update
-        sudo apt install -y wget unzip
+        sudo apt install -y wget unzip curl
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdline-tools.zip
         sudo mkdir -p /usr/local/lib/android/sdk/cmdline-tools
         sudo unzip -q /tmp/cmdline-tools.zip -d /usr/local/lib/android/sdk/cmdline-tools
@@ -42,27 +42,26 @@ jobs:
     - name: 📥 Descargar dependencias de Google Play Services
       run: |
         echo "=== DESCARGANDO DEPENDENCIAS ==="
-        mkdir -p PharmaTools_Inventario/app/libs
-        cd PharmaTools_Inventario/app/libs
+        mkdir -p app/libs
+        cd app/libs
         
-        # Descargar play-services-code-scanner
-        wget -q https://repo1.maven.org/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar -O play-services-code-scanner.aar || \
-        wget -q https://maven.google.com/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar -O play-services-code-scanner.aar
+        # Descargar cada dependencia
+        curl -L -o play-services-code-scanner.aar https://repo1.maven.org/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar || \
+        curl -L -o play-services-code-scanner.aar https://maven.google.com/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar
         
-        # Descargar play-services-base
-        wget -q https://repo1.maven.org/maven2/com/google/android/gms/play-services-base/18.3.0/play-services-base-18.3.0.aar -O play-services-base.aar || \
-        wget -q https://maven.google.com/com/google/android/gms/play-services-base/18.3.0/play-services-base-18.3.0.aar -O play-services-base.aar
+        curl -L -o play-services-base.aar https://repo1.maven.org/maven2/com/google/android/gms/play-services-base/18.3.0/play-services-base-18.3.0.aar || \
+        curl -L -o play-services-base.aar https://maven.google.com/com/google/android/gms/play-services-base/18.3.0/play-services-base-18.3.0.aar
         
-        # Descargar play-services-basement
-        wget -q https://repo1.maven.org/maven2/com/google/android/gms/play-services-basement/18.3.0/play-services-basement-18.3.0.aar -O play-services-basement.aar || \
-        wget -q https://maven.google.com/com/google/android/gms/play-services-basement/18.3.0/play-services-basement-18.3.0.aar -O play-services-basement.aar
+        curl -L -o play-services-basement.aar https://repo1.maven.org/maven2/com/google/android/gms/play-services-basement/18.3.0/play-services-basement-18.3.0.aar || \
+        curl -L -o play-services-basement.aar https://maven.google.com/com/google/android/gms/play-services-basement/18.3.0/play-services-basement-18.3.0.aar
         
-        # Descargar play-services-tasks
-        wget -q https://repo1.maven.org/maven2/com/google/android/gms/play-services-tasks/18.1.0/play-services-tasks-18.1.0.aar -O play-services-tasks.aar || \
-        wget -q https://maven.google.com/com/google/android/gms/play-services-tasks/18.1.0/play-services-tasks-18.1.0.aar -O play-services-tasks.aar
+        curl -L -o play-services-tasks.aar https://repo1.maven.org/maven2/com/google/android/gms/play-services-tasks/18.1.0/play-services-tasks-18.1.0.aar || \
+        curl -L -o play-services-tasks.aar https://maven.google.com/com/google/android/gms/play-services-tasks/18.1.0/play-services-tasks-18.1.0.aar
         
         echo "=== VERIFICANDO DESCARGAS ==="
         ls -la
+        echo "=== TAMAÑOS ==="
+        du -h *.aar 2>/dev/null || echo "⚠️ No hay archivos AAR"
 
     - name: 📁 Generar proyecto con Python
       run: python3 build_pharmatools.py
@@ -72,7 +71,7 @@ jobs:
         echo "=== Contenido de app/libs ==="
         ls -la PharmaTools_Inventario/app/libs/
         echo "=== Tamaños ==="
-        du -h PharmaTools_Inventario/app/libs/*.aar
+        du -h PharmaTools_Inventario/app/libs/*.aar 2>/dev/null || echo "⚠️ No hay AAR"
 
     - name: ✅ Configurar Gradle Wrapper
       run: |
