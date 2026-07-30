@@ -42,7 +42,7 @@ jobs:
     - name: 📁 Generar proyecto con Python
       run: python3 build_pharmatools.py
 
-    - name: 🔧 Reconstruir app/build.gradle con ML Kit
+    - name: 🔧 Reconstruir app/build.gradle con la dependencia correcta
       run: |
         cd PharmaTools_Inventario
         cat > app/build.gradle << 'EOF'
@@ -77,40 +77,37 @@ jobs:
             implementation 'androidx.appcompat:appcompat:1.6.1'
             implementation 'com.google.android.material:material:1.9.0'
             implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-            implementation 'com.google.mlkit:barcode-scanning:17.2.0'
+            implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
             implementation 'androidx.multidex:multidex:2.0.1'
             implementation 'org.json:json:20230227'
             implementation 'com.squareup.okhttp3:okhttp:4.12.0'
             implementation 'com.google.code.gson:gson:2.10.1'
         }
         EOF
-        echo "✅ app/build.gradle actualizado con ML Kit"
+        echo "✅ app/build.gradle reconstruido con play-services-code-scanner"
 
-    - name: 🔧 Modificar código Java para usar ML Kit
+    - name: 🔧 Corregir importaciones en archivos Java
       run: |
         cd PharmaTools_Inventario
-
-        # Reemplazar importaciones y uso de GmsBarcodeScanner por ML Kit
         for file in app/src/main/java/com/pharmatools/inventario/ControlEtiquetadoActivity.java app/src/main/java/com/pharmatools/inventario/EtiquetadoDirectoActivity.java; do
           if [ -f "$file" ]; then
-            # Eliminar import de GmsBarcodeScanner
-            sed -i '/import com.google.android.gms.code_scanner/d' "$file"
-            # Agregar import de ML Kit
-            sed -i '/^package /a import com.google.mlkit.vision.barcode.BarcodeScanner;\nimport com.google.mlkit.vision.barcode.BarcodeScanning;\nimport com.google.mlkit.vision.barcode.common.Barcode;' "$file"
-            # Reemplazar tipo de variable GmsBarcodeScanner por BarcodeScanner
-            sed -i 's/GmsBarcodeScanner scanner;/BarcodeScanner scanner;/g' "$file"
-            # Reemplazar GmsBarcodeScanner.getInstance(this) por BarcodeScanning.getClient()
-            sed -i 's/GmsBarcodeScanner.getInstance(this)/BarcodeScanning.getClient()/g' "$file"
-            # Reemplazar scanner.startScan() por scanner.process()
-            # Esto es más complejo, lo dejamos para el próximo paso
-            echo "✅ Modificado: $file"
+            # Eliminar cualquier importación incorrecta de ML Kit
+            sed -i '/import com.google.mlkit.vision.barcode/d' "$file"
+            # Agregar la importación correcta de GmsBarcodeScanner
+            sed -i '/^package /a import com.google.android.gms.code_scanner.GmsBarcodeScanner;' "$file"
+            echo "✅ Corregido: $file"
           fi
         done
 
-        # Ahora corregir la lógica de escaneo: en lugar de startScan(), usamos process() con una imagen.
-        # Pero esto requiere más cambios. Como el código actual usa GmsBarcodeScanner que lanza una actividad,
-        # para simplificar, dejaremos la lógica de ML Kit para después.
-        # Por ahora, dejamos los cambios básicos.
+    - name: 🔧 Agregar meta-data al AndroidManifest.xml
+      run: |
+        cd PharmaTools_Inventario
+        if ! grep -q "com.google.mlkit.vision.DEPENDENCIES" app/src/main/AndroidManifest.xml; then
+          sed -i '/<application /a \        <meta-data\n            android:name="com.google.mlkit.vision.DEPENDENCIES"\n            android:value="barcode_ui"/>' app/src/main/AndroidManifest.xml
+          echo "✅ meta-data agregado al AndroidManifest.xml"
+        else
+          echo "✅ meta-data ya presente"
+        fi
 
     - name: 🚀 Compilar APK con Gradle 7.5
       uses: gradle/gradle-build-action@v2
