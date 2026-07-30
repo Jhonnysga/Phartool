@@ -394,7 +394,7 @@ dependencies {{
             f.write(content)
         print(f"  ✅ {name}")
 
-    # Clases Java (con ZXing)
+    # Clases Java (con ZXing corregido)
     java_files = {
         "Producto.java": """
 package com.pharmatools.inventario;
@@ -849,7 +849,6 @@ package com.pharmatools.inventario;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.SharedPreferences;
-import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -859,10 +858,11 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import com.journeyapps.barcodescanner.ScanContract;
 import com.journeyapps.barcodescanner.ScanOptions;
-import com.google.zxing.BarcodeFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -879,17 +879,15 @@ public class ControlEtiquetadoActivity extends AppCompatActivity {
     private ArrayAdapter<String> adapter;
     private SharedPreferences prefs;
 
-    // Registrar el contrato de escaneo
-    private final ScanContract scanContract = new ScanContract() {
-        @Override
-        public void onResult(ScanResult result) {
-            if (result.getContents() != null) {
-                procesarCodigo(result.getContents());
-            } else {
-                Toast.makeText(ControlEtiquetadoActivity.this, "Escaneo cancelado", Toast.LENGTH_SHORT).show();
-            }
-        }
-    };
+    private final ActivityResultLauncher<ScanOptions> barcodeLauncher =
+            registerForActivityResult(new ScanContract(),
+                    result -> {
+                        if (result.getContents() != null) {
+                            procesarCodigo(result.getContents());
+                        } else {
+                            Toast.makeText(ControlEtiquetadoActivity.this, "Escaneo cancelado", Toast.LENGTH_SHORT).show();
+                        }
+                    });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -944,7 +942,7 @@ public class ControlEtiquetadoActivity extends AppCompatActivity {
         options.setCameraId(0);
         options.setBeepEnabled(true);
         options.setBarcodeImageEnabled(true);
-        scanContract.launch(options);
+        barcodeLauncher.launch(options);
     }
 
     private void buscarProductos(String query) {
@@ -1021,6 +1019,8 @@ import android.os.Handler;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import com.journeyapps.barcodescanner.ScanContract;
 import com.journeyapps.barcodescanner.ScanOptions;
@@ -1037,17 +1037,16 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
     private static final int MAX_INTENTOS_FALLIDOS = 2;
     private Handler handler = new Handler();
 
-    private final ScanContract scanContract = new ScanContract() {
-        @Override
-        public void onResult(ScanResult result) {
-            if (result.getContents() != null) {
-                procesarCodigo(result.getContents());
-            } else {
-                Toast.makeText(EtiquetadoDirectoActivity.this, "Escaneo cancelado", Toast.LENGTH_SHORT).show();
-                handler.postDelayed(() -> { if (!isFinishing()) iniciarEscaneo(); }, 500);
-            }
-        }
-    };
+    private final ActivityResultLauncher<ScanOptions> barcodeLauncher =
+            registerForActivityResult(new ScanContract(),
+                    result -> {
+                        if (result.getContents() != null) {
+                            procesarCodigo(result.getContents());
+                        } else {
+                            Toast.makeText(EtiquetadoDirectoActivity.this, "Escaneo cancelado", Toast.LENGTH_SHORT).show();
+                            handler.postDelayed(() -> { if (!isFinishing()) iniciarEscaneo(); }, 500);
+                        }
+                    });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -1075,7 +1074,7 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
         options.setCameraId(0);
         options.setBeepEnabled(true);
         options.setBarcodeImageEnabled(true);
-        scanContract.launch(options);
+        barcodeLauncher.launch(options);
     }
 
     private void procesarCodigo(String codigo) {
