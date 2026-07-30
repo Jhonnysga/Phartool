@@ -31,6 +31,31 @@ def download_wrapper_jar(dest_dir):
             f.write("")
         print("  ⚠️ Archivo vacío creado (la compilación fallará si no se descarga)")
 
+def download_aar(dest_dir):
+    """Descarga play-services-code-scanner.aar si no existe"""
+    aar_path = os.path.join(dest_dir, "play-services-code-scanner.aar")
+    if os.path.exists(aar_path) and os.path.getsize(aar_path) > 1000:
+        print("  ✅ play-services-code-scanner.aar ya existe")
+        return
+    print("  ⬇️ Descargando play-services-code-scanner.aar...")
+    os.makedirs(dest_dir, exist_ok=True)
+    urls = [
+        "https://maven.google.com/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar",
+        "https://repo1.maven.org/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar",
+        "https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar"
+    ]
+    for url in urls:
+        try:
+            urllib.request.urlretrieve(url, aar_path)
+            if os.path.getsize(aar_path) > 1000:
+                print(f"  ✅ AAR descargado desde {url}")
+                return
+        except:
+            continue
+    print("  ❌ No se pudo descargar el AAR - se creará un archivo vacío")
+    with open(aar_path, "w") as f:
+        f.write("")
+
 def create_icon_png():
     img = Image.new('RGB', (192, 192), color='#38B2AC')
     draw = ImageDraw.Draw(img)
@@ -66,8 +91,10 @@ def create_project():
     os.makedirs(os.path.join(project_dir, "app/src/main/res/drawable"))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/mipmap-hdpi"))
     os.makedirs(os.path.join(project_dir, "gradle/wrapper"))
+    os.makedirs(os.path.join(project_dir, "app/libs"))
 
     download_wrapper_jar(os.path.join(project_dir, "gradle/wrapper"))
+    download_aar(os.path.join(project_dir, "app/libs"))
 
     # Icono
     icon_path = os.path.join(project_dir, "app/src/main/res/mipmap-hdpi", "ic_pharmatools.png")
@@ -88,9 +115,8 @@ def create_project():
     print("  ✅ logo_pharmatools.xml")
 
     # ===== ARCHIVOS GRADLE =====
-    # build.gradle (RAÍZ) - SIN allprojects para evitar conflictos
     with open(os.path.join(project_dir, "build.gradle"), "w") as f:
-        f.write("""// Top-level build file where you can add configuration options common to all sub-projects/modules.
+        f.write("""// Top-level build file
 plugins {
     id 'com.android.application' version '7.4.2' apply false
 }
@@ -100,16 +126,12 @@ task clean(type: Delete) {
 }
 """)
 
-    # settings.gradle - CON TODOS LOS REPOSITORIOS
     with open(os.path.join(project_dir, "settings.gradle"), "w") as f:
         f.write(f"""pluginManagement {{
     repositories {{
         google()
         mavenCentral()
         gradlePluginPortal()
-        maven {{ url 'https://dl.google.com/dl/android/maven2/' }}
-        maven {{ url 'https://maven.google.com' }}
-        maven {{ url 'https://jitpack.io' }}
     }}
 }}
 dependencyResolutionManagement {{
@@ -117,16 +139,12 @@ dependencyResolutionManagement {{
     repositories {{
         google()
         mavenCentral()
-        maven {{ url 'https://dl.google.com/dl/android/maven2/' }}
-        maven {{ url 'https://maven.google.com' }}
-        maven {{ url 'https://jitpack.io' }}
     }}
 }}
 rootProject.name = "{PROJECT_NAME}"
 include ':app'
 """)
 
-    # gradle.properties
     with open(os.path.join(project_dir, "gradle.properties"), "w") as f:
         f.write("""org.gradle.jvmargs=-Xmx2048m
 android.useAndroidX=true
@@ -135,7 +153,6 @@ org.gradle.daemon=false
 org.gradle.parallel=false
 """)
 
-    # gradle-wrapper.properties
     with open(os.path.join(project_dir, "gradle/wrapper/gradle-wrapper.properties"), "w") as f:
         f.write("""distributionBase=GRADLE_USER_HOME
 distributionPath=wrapper/dists
@@ -144,7 +161,7 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
 
-    # app/build.gradle - CON PLAY SERVICES
+    # app/build.gradle - CON AAR LOCAL
     with open(os.path.join(project_dir, "app/build.gradle"), "w") as f:
         f.write(f"""plugins {{
     id 'com.android.application'
@@ -178,8 +195,8 @@ dependencies {{
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     
-    // ESCÁNER DE GOOGLE PLAY SERVICES
-    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
+    // ESCÁNER DE GOOGLE PLAY SERVICES (desde AAR local)
+    implementation files('libs/play-services-code-scanner.aar')
     implementation 'com.google.android.gms:play-services-base:18.3.0'
     implementation 'com.google.android.gms:play-services-basement:18.3.0'
     implementation 'com.google.android.gms:play-services-tasks:18.1.0'
