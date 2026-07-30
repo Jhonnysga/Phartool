@@ -43,7 +43,7 @@ def create_project():
     if os.path.exists(project_dir):
         shutil.rmtree(project_dir)
 
-    # Estructura de carpetas
+    # ===== ESTRUCTURA DE CARPETAS =====
     os.makedirs(os.path.join(project_dir, "app/src/main/java", PACKAGE_PATH))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/layout"))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/values"))
@@ -51,7 +51,7 @@ def create_project():
     os.makedirs(os.path.join(project_dir, "app/src/main/res/mipmap-hdpi"))
     os.makedirs(os.path.join(project_dir, "gradle/wrapper"))
 
-    # Icono PNG
+    # ===== ICONO PNG =====
     icon_path = os.path.join(project_dir, "app/src/main/res/mipmap-hdpi", "ic_pharmatools.png")
     img = create_icon_png()
     img.save(icon_path)
@@ -63,13 +63,13 @@ def create_project():
         shutil.copy(icon_path, dest_dir)
         print(f"  ✅ ic_pharmatools.png copiado a {dens}")
 
-    # Logo vectorial
+    # ===== LOGO VECTORIAL =====
     logo_path = os.path.join(project_dir, "app/src/main/res/drawable", "logo_pharmatools.xml")
     with open(logo_path, "w") as f:
         f.write(create_logo_xml())
     print("  ✅ logo_pharmatools.xml")
 
-    # Archivos de Gradle
+    # ===== ARCHIVOS DE GRADLE =====
     with open(os.path.join(project_dir, "build.gradle"), "w") as f:
         f.write("""plugins {
     id 'com.android.application' version '7.4.2' apply false
@@ -113,7 +113,7 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
 
-    # app/build.gradle
+    # ===== app/build.gradle =====
     with open(os.path.join(project_dir, "app/build.gradle"), "w") as f:
         f.write(f"""plugins {{
     id 'com.android.application'
@@ -155,7 +155,7 @@ dependencies {{
 }}
 """)
 
-    # AndroidManifest.xml
+    # ===== AndroidManifest.xml =====
     with open(os.path.join(project_dir, "app/src/main/AndroidManifest.xml"), "w") as f:
         f.write("""<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -179,7 +179,9 @@ dependencies {{
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"
             android:value="barcode_ui" />
-        <activity android:name=".MainActivity" android:exported="true">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -192,7 +194,8 @@ dependencies {{
 </manifest>
 """)
 
-    # Recursos values
+    # ===== RECURSOS VALUES =====
+    # colors.xml
     with open(os.path.join(project_dir, "app/src/main/res/values/colors.xml"), "w") as f:
         f.write("""<?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -211,6 +214,7 @@ dependencies {{
 </resources>
 """)
 
+    # themes.xml (con el estilo correcto)
     with open(os.path.join(project_dir, "app/src/main/res/values/themes.xml"), "w") as f:
         f.write("""<?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -228,6 +232,7 @@ dependencies {{
 </resources>
 """)
 
+    # styles.xml
     with open(os.path.join(project_dir, "app/src/main/res/values/styles.xml"), "w") as f:
         f.write("""<?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -249,13 +254,14 @@ dependencies {{
 </resources>
 """)
 
+    # strings.xml
     with open(os.path.join(project_dir, "app/src/main/res/values/strings.xml"), "w") as f:
         f.write("""<resources>
     <string name="app_name">Pharmatools Tag</string>
 </resources>
 """)
 
-    # Layouts
+    # ===== LAYOUTS =====
     layouts = {
         "activity_main.xml": """<?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
@@ -293,17 +299,32 @@ dependencies {{
             android:textSize="14sp"
             android:textColor="@color/texto_secundario"
             android:layout_marginBottom="32dp" />
-        <Button android:id="@+id/btnSincronizar" style="@style/ButtonStyle"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="🔄 Sincronizar productos" android:layout_marginBottom="16dp" />
-        <Button android:id="@+id/btnControlEtiquetado" style="@style/ButtonStyle"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="🔍 Control de Etiquetado" android:layout_marginBottom="16dp" />
-        <Button android:id="@+id/btnEtiquetado" style="@style/ButtonStyle"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="🏷️ Etiquetado" android:layout_marginBottom="16dp" />
-        <Button android:id="@+id/btnConfiguracion" style="@style/ButtonSecondary"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
+        <Button
+            android:id="@+id/btnSincronizar"
+            style="@style/ButtonStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔄 Sincronizar productos"
+            android:layout_marginBottom="16dp" />
+        <Button
+            android:id="@+id/btnControlEtiquetado"
+            style="@style/ButtonStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔍 Control de Etiquetado"
+            android:layout_marginBottom="16dp" />
+        <Button
+            android:id="@+id/btnEtiquetado"
+            style="@style/ButtonStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🏷️ Etiquetado"
+            android:layout_marginBottom="16dp" />
+        <Button
+            android:id="@+id/btnConfiguracion"
+            style="@style/ButtonSecondary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:text="⚙️ Configuración" />
     </LinearLayout>
 </ScrollView>""",
@@ -314,80 +335,160 @@ dependencies {{
     android:orientation="vertical"
     android:padding="16dp"
     android:background="@color/fondo_general">
-    <TextView android:id="@+id/tvEstado" android:layout_width="wrap_content"
-        android:layout_height="wrap_content" android:text="Escanea o busca un producto"
-        android:textSize="18sp" android:textColor="@color/texto_principal"
+    <TextView
+        android:id="@+id/tvEstado"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Escanea o busca un producto"
+        android:textSize="18sp"
+        android:textColor="@color/texto_principal"
         android:layout_marginBottom="16dp" />
-    <EditText android:id="@+id/etBusqueda" android:layout_width="match_parent"
-        android:layout_height="wrap_content" android:hint="🔍 Buscar por nombre o código..."
-        android:inputType="text" android:layout_marginBottom="8dp" />
-    <ListView android:id="@+id/lvResultados" android:layout_width="match_parent"
-        android:layout_height="200dp" android:visibility="gone" />
-    <Button android:id="@+id/btnEscanearControl" style="@style/ButtonStyle"
-        android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="📷 Escanear código" android:layout_marginBottom="8dp" />
-    <TextView android:id="@+id/tvDescripcion" android:layout_width="wrap_content"
-        android:layout_height="wrap_content" android:textSize="16sp"
-        android:textColor="@color/texto_principal" android:layout_marginBottom="8dp" />
-    <TextView android:id="@+id/tvPrecio" android:layout_width="wrap_content"
-        android:layout_height="wrap_content" android:textSize="16sp"
-        android:textColor="@color/texto_principal" android:layout_marginBottom="16dp" />
-    <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:orientation="horizontal" android:layout_marginBottom="16dp">
-        <Button android:id="@+id/btnOk" style="@style/ButtonSecondary"
-            android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="✅ OK (verificado)" android:enabled="false" />
-        <Button android:id="@+id/btnImprimir" style="@style/ButtonStyle"
-            android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="🏷️ Imprimir precio" android:enabled="false"
+    <EditText
+        android:id="@+id/etBusqueda"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="🔍 Buscar por nombre o código..."
+        android:inputType="text"
+        android:layout_marginBottom="8dp" />
+    <ListView
+        android:id="@+id/lvResultados"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:visibility="gone" />
+    <Button
+        android:id="@+id/btnEscanearControl"
+        style="@style/ButtonStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="📷 Escanear código"
+        android:layout_marginBottom="8dp" />
+    <TextView
+        android:id="@+id/tvDescripcion"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:textColor="@color/texto_principal"
+        android:layout_marginBottom="8dp" />
+    <TextView
+        android:id="@+id/tvPrecio"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:textColor="@color/texto_principal"
+        android:layout_marginBottom="16dp" />
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+        <Button
+            android:id="@+id/btnOk"
+            style="@style/ButtonSecondary"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="✅ OK (verificado)"
+            android:enabled="false" />
+        <Button
+            android:id="@+id/btnImprimir"
+            style="@style/ButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🏷️ Imprimir precio"
+            android:enabled="false"
             android:layout_marginStart="8dp" />
-        <Button android:id="@+id/btnGenerarCodigo" style="@style/ButtonStyle"
-            android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="📦 Crear código" android:enabled="false"
+        <Button
+            android:id="@+id/btnGenerarCodigo"
+            style="@style/ButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📦 Crear código"
+            android:enabled="false"
             android:layout_marginStart="8dp" />
     </LinearLayout>
-    <Button android:id="@+id/btnVolverControl" style="@style/ButtonSecondary"
-        android:layout_width="wrap_content" android:layout_height="wrap_content"
+    <Button
+        android:id="@+id/btnVolverControl"
+        style="@style/ButtonSecondary"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:text="🔙 Volver al menú" />
 </LinearLayout>""",
         "activity_etiquetado_directo.xml": """<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:gravity="center" android:padding="24dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="24dp"
     android:background="@color/fondo_general">
-    <TextView android:id="@+id/tvEstadoDirecto" android:layout_width="wrap_content"
-        android:layout_height="wrap_content" android:text="📷 Escanea un código para imprimir..."
-        android:textSize="20sp" android:textColor="@color/texto_principal"
-        android:gravity="center" android:layout_marginBottom="32dp" />
-    <Button android:id="@+id/btnVolverDirecto" style="@style/ButtonSecondary"
-        android:layout_width="wrap_content" android:layout_height="wrap_content"
+    <TextView
+        android:id="@+id/tvEstadoDirecto"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="📷 Escanea un código para imprimir..."
+        android:textSize="20sp"
+        android:textColor="@color/texto_principal"
+        android:gravity="center"
+        android:layout_marginBottom="32dp" />
+    <Button
+        android:id="@+id/btnVolverDirecto"
+        style="@style/ButtonSecondary"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:text="🔙 Volver al menú" />
 </LinearLayout>""",
         "activity_configuracion.xml": """<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:padding="24dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
     android:background="@color/fondo_general">
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="⚙️ Configuración Avanzada" android:textSize="24sp"
-        android:textStyle="bold" android:textColor="@color/color_principal"
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="⚙️ Configuración Avanzada"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="@color/color_principal"
         android:layout_marginBottom="24dp" />
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="📍 Selecciona la sede" android:textSize="16sp"
-        android:textColor="@color/texto_principal" android:layout_marginBottom="8dp" />
-    <Spinner android:id="@+id/spinnerSede" android:layout_width="match_parent"
-        android:layout_height="wrap_content" android:layout_marginBottom="16dp" />
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="📡 MAC de la impresora" android:textSize="16sp"
-        android:textColor="@color/texto_principal" android:layout_marginBottom="8dp" />
-    <EditText android:id="@+id/etMacImpresora" android:layout_width="match_parent"
-        android:layout_height="wrap_content" android:hint="Ej: 60:8A:10:19:48:B4"
-        android:inputType="text" android:layout_marginBottom="16dp" />
-    <Button android:id="@+id/btnGuardarConfig" style="@style/ButtonStyle"
-        android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="💾 Guardar configuración" android:layout_marginBottom="16dp" />
-    <Button android:id="@+id/btnVolverConfig" style="@style/ButtonSecondary"
-        android:layout_width="match_parent" android:layout_height="wrap_content"
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="📍 Selecciona la sede"
+        android:textSize="16sp"
+        android:textColor="@color/texto_principal"
+        android:layout_marginBottom="8dp" />
+    <Spinner
+        android:id="@+id/spinnerSede"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp" />
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="📡 MAC de la impresora"
+        android:textSize="16sp"
+        android:textColor="@color/texto_principal"
+        android:layout_marginBottom="8dp" />
+    <EditText
+        android:id="@+id/etMacImpresora"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Ej: 60:8A:10:19:48:B4"
+        android:inputType="text"
+        android:layout_marginBottom="16dp" />
+    <Button
+        android:id="@+id/btnGuardarConfig"
+        style="@style/ButtonStyle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="💾 Guardar configuración"
+        android:layout_marginBottom="16dp" />
+    <Button
+        android:id="@+id/btnVolverConfig"
+        style="@style/ButtonSecondary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:text="🔙 Volver al menú" />
 </LinearLayout>"""
     }
@@ -398,7 +499,7 @@ dependencies {{
             f.write(content)
         print(f"  ✅ {name}")
 
-    # Clases Java
+    # ===== CLASES JAVA =====
     java_files = {
         "Producto.java": """
 package com.pharmatools.inventario;
@@ -1286,7 +1387,7 @@ public class ConfiguracionActivity extends AppCompatActivity {
             f.write(content.strip())
         print(f"  ✅ {fname}")
 
-    # Gradlew
+    # ===== GRADLEW =====
     gradlew_path = os.path.join(project_dir, "gradlew")
     with open(gradlew_path, "w") as f:
         f.write("""#!/bin/bash
