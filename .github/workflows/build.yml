@@ -42,6 +42,15 @@ jobs:
     - name: 📁 Generar proyecto con Python
       run: python3 build_pharmatools.py
 
+    - name: 🧹 Limpiar caché de Gradle y forzar descarga
+      run: |
+        cd PharmaTools_Inventario
+        rm -rf ~/.gradle/caches/
+        rm -rf .gradle
+        ./gradlew clean --refresh-dependencies
+      env:
+        ANDROID_HOME: /usr/local/lib/android/sdk
+
     - name: 🚀 Compilar APK con Gradle 7.5
       uses: gradle/gradle-build-action@v2
       with:
