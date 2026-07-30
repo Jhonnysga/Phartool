@@ -10,7 +10,6 @@ from PIL import Image, ImageDraw
 PROJECT_NAME = "PharmaTools_Inventario"
 PACKAGE = "com.pharmatools.inventario"
 PACKAGE_PATH = PACKAGE.replace(".", "/")
-MAC_IMPRESORA = "60:8A:10:19:48:B4"
 COMPILE_SDK = 33
 TARGET_SDK = 33
 MIN_SDK = 29
@@ -70,8 +69,41 @@ def create_project():
     os.makedirs(os.path.join(project_dir, "app/src/main/res/drawable"))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/mipmap-hdpi"))
     os.makedirs(os.path.join(project_dir, "gradle/wrapper"))
+    os.makedirs(os.path.join(project_dir, "app/libs"))
 
     download_wrapper_jar(os.path.join(project_dir, "gradle/wrapper"))
+
+    # ===== COPIAR AAR DESDE EL REPOSITORIO =====
+    # Buscar el AAR en varias ubicaciones posibles
+    aar_src = None
+    posibles_ubicaciones = [
+        os.path.join(os.getcwd(), "app/libs/play-services-code-scanner.aar"),
+        os.path.join(os.getcwd(), "app/libs/play-services-code-scanner-16.1.0.aar"),
+        os.path.join(os.getcwd(), "play-services-code-scanner.aar"),
+        os.path.join(os.getcwd(), "libs/play-services-code-scanner.aar")
+    ]
+    
+    for ubicacion in posibles_ubicaciones:
+        if os.path.exists(ubicacion) and os.path.getsize(ubicacion) > 1000:
+            aar_src = ubicacion
+            break
+    
+    aar_dst = os.path.join(project_dir, "app/libs/play-services-code-scanner.aar")
+    
+    if aar_src:
+        shutil.copy2(aar_src, aar_dst)
+        print(f"  ✅ play-services-code-scanner.aar copiado desde: {aar_src}")
+        print(f"  📦 Tamaño: {os.path.getsize(aar_src)} bytes")
+    else:
+        print("  ❌ ERROR CRÍTICO: No se encontró el AAR")
+        print("  ❌ Buscado en las siguientes ubicaciones:")
+        for ubicacion in posibles_ubicaciones:
+            print(f"  ❌   - {ubicacion}")
+        print("  ❌ Asegúrate de tener el archivo en tu repositorio:")
+        print("  ❌ app/libs/play-services-code-scanner.aar")
+        print("  ❌ Puedes descargarlo desde:")
+        print("  ❌ https://repo1.maven.org/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar")
+        sys.exit(1)
 
     # ===== ICONO =====
     icon_path = os.path.join(project_dir, "app/src/main/res/mipmap-hdpi", "ic_pharmatools.png")
@@ -93,8 +125,7 @@ def create_project():
 
     # ===== GRADLE FILES =====
     with open(os.path.join(project_dir, "build.gradle"), "w") as f:
-        f.write("""// Top-level build file
-plugins {
+        f.write("""plugins {
     id 'com.android.application' version '7.4.2' apply false
 }
 
@@ -109,8 +140,6 @@ task clean(type: Delete) {
         google()
         mavenCentral()
         gradlePluginPortal()
-        maven {{ url 'https://dl.google.com/dl/android/maven2/' }}
-        maven {{ url 'https://maven.google.com' }}
     }}
 }}
 dependencyResolutionManagement {{
@@ -118,8 +147,6 @@ dependencyResolutionManagement {{
     repositories {{
         google()
         mavenCentral()
-        maven {{ url 'https://dl.google.com/dl/android/maven2/' }}
-        maven {{ url 'https://maven.google.com' }}
     }}
 }}
 rootProject.name = "{PROJECT_NAME}"
@@ -142,7 +169,7 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
 
-    # ===== app/build.gradle - CON DEPENDENCIAS MAVEN =====
+    # ===== app/build.gradle - CON AAR LOCAL =====
     with open(os.path.join(project_dir, "app/build.gradle"), "w") as f:
         f.write(f"""plugins {{
     id 'com.android.application'
@@ -176,12 +203,12 @@ dependencies {{
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     
-    // GOOGLE PLAY SERVICES Y ML KIT
-    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
+    // ESCÁNER DE GOOGLE PLAY SERVICES (desde AAR local)
+    implementation files('libs/play-services-code-scanner.aar')
+    
     implementation 'com.google.android.gms:play-services-base:18.3.0'
     implementation 'com.google.android.gms:play-services-basement:18.3.0'
     implementation 'com.google.android.gms:play-services-tasks:18.1.0'
-    implementation 'com.google.mlkit:barcode-scanning:17.2.0'
     
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'org.json:json:20230227'
