@@ -11,16 +11,16 @@ jobs:
     timeout-minutes: 30
 
     steps:
-    - name: ⬇️ Checkout
+    - name: Checkout
       uses: actions/checkout@v4
 
-    - name: 🔧 Java 17
+    - name: Set up Java 17
       uses: actions/setup-java@v4
       with:
         distribution: temurin
         java-version: 17
 
-    - name: 📦 Instalar Android SDK
+    - name: Install Android SDK
       run: |
         sudo apt update
         sudo apt install -y wget unzip
@@ -33,23 +33,23 @@ jobs:
         yes | /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager --licenses > /dev/null 2>&1 || true
         /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" "extras;google;m2repository" "extras;android;m2repository" > /dev/null 2>&1
 
-    - name: 🐍 Python y Pillow
+    - name: Install Python and Pillow
       run: |
         sudo apt update
         sudo apt install -y python3 python3-pip
         pip3 install Pillow
 
-    - name: 📁 Generar proyecto con Python
+    - name: Generate project with Python
       run: python3 build_pharmatools.py
 
-    - name: ✅ Verificar AAR en el proyecto
+    - name: Verify AAR in project
       run: |
-        echo "=== Contenido de app/libs ==="
+        echo "=== Content of app/libs ==="
         ls -la PharmaTools_Inventario/app/libs/
-        echo "=== Tamaño del AAR ==="
+        echo "=== AAR size ==="
         du -h PharmaTools_Inventario/app/libs/play-services-code-scanner.aar
 
-    - name: ✅ Configurar Gradle Wrapper
+    - name: Setup Gradle Wrapper
       run: |
         cd PharmaTools_Inventario
         if [ ! -f "gradle/wrapper/gradle-wrapper.jar" ]; then
@@ -57,27 +57,27 @@ jobs:
         fi
         chmod +x gradlew
 
-    - name: 🚀 Compilar APK
+    - name: Build APK
       run: |
         cd PharmaTools_Inventario
         ./gradlew clean assembleDebug --refresh-dependencies --no-build-cache --stacktrace
       env:
         ANDROID_HOME: /usr/local/lib/android/sdk
 
-    - name: 📤 Subir APK
+    - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: Pharmatools-Tag-APK
         path: PharmaTools_Inventario/app/build/outputs/apk/debug/*.apk
         retention-days: 30
 
-    - name: 📊 Verificar APK
+    - name: Verify APK
       run: |
         APK="PharmaTools_Inventario/app/build/outputs/apk/debug/app-debug.apk"
         if [ -f "$APK" ]; then 
-          echo "✅ APK generado exitosamente!"
-          echo "📦 Tamaño: $(du -h $APK | cut -f1)"
+          echo "✅ APK generated successfully!"
+          echo "📦 Size: $(du -h $APK | cut -f1)"
         else 
-          echo "❌ Error: APK no encontrado"
+          echo "❌ Error: APK not found"
           exit 1
         fi
