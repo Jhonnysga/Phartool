@@ -30,7 +30,8 @@ jobs:
         sudo mv /usr/local/lib/android/sdk/cmdline-tools/cmdline-tools /usr/local/lib/android/sdk/cmdline-tools/16.0
         echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
         echo "PATH=$PATH:/usr/local/lib/android/sdk/cmdline-tools/16.0/bin:/usr/local/lib/android/sdk/platform-tools" >> $GITHUB_ENV
-        yes | /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager --licenses > /dev/null 2>&1
+        # Aceptar licencias (silencioso)
+        yes | /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager --licenses > /dev/null 2>&1 || true
         /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" "extras;google;m2repository" "extras;android;m2repository" > /dev/null 2>&1
 
     - name: 🐍 Instalar Python y Pillow
@@ -64,7 +65,7 @@ jobs:
       uses: gradle/gradle-build-action@v2
       with:
         gradle-version: 7.5
-        arguments: assembleDebug --refresh-dependencies
+        arguments: assembleDebug --refresh-dependencies --stacktrace
         build-root-directory: PharmaTools_Inventario
 
     - name: 📤 Subir APK como artefacto
