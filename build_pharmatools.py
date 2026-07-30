@@ -112,7 +112,7 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
 
-    # app/build.gradle con ZXing (sin Google Play Services)
+    # app/build.gradle con ZXing
     with open(os.path.join(project_dir, "app/build.gradle"), "w") as f:
         f.write(f"""plugins {{
     id 'com.android.application'
@@ -145,7 +145,6 @@ dependencies {{
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    // ZXing para escáner (sin dependencias de Google Play Services)
     implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'org.json:json:20230227'
@@ -1084,7 +1083,7 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
             if (intentosFallidos >= MAX_INTENTOS_FALLIDOS) {
                 tvEstado.setText("❌ Producto no encontrado: " + codigo + ". Volviendo al menú.");
                 Toast.makeText(this, "Producto no encontrado. Volviendo al menú.", Toast.LENGTH_SHORT).show();
-                handler.postDelayed(this::finish, 1500);
+                handler.postDelayed(() -> finish(), 1500);
                 return;
             }
             tvEstado.setText("⚠️ Producto no encontrado. Reintentando... (" + intentosFallidos + "/" + MAX_INTENTOS_FALLIDOS + ")");
@@ -1106,7 +1105,7 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
             tvEstado.setText("❌ Bluetooth no disponible");
             Toast.makeText(this, "Bluetooth no disponible", Toast.LENGTH_SHORT).show();
             isPrinting = false;
-            handler.postDelayed(this::finish, 1000);
+            handler.postDelayed(() -> finish(), 1000);
             return;
         }
         printerService.print(adapter.getRemoteDevice(mac), tspl, new BluetoothPrinterService.Callback() {
@@ -1123,7 +1122,7 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
                     tvEstado.setText("❌ Error: " + error);
                     Toast.makeText(EtiquetadoDirectoActivity.this, "Error al imprimir: " + error, Toast.LENGTH_SHORT).show();
                     isPrinting = false;
-                    handler.postDelayed(this::finish, 1500);
+                    handler.postDelayed(() -> finish(), 1500);
                 });
             }
         });
