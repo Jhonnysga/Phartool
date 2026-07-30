@@ -20,29 +20,18 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: 📦 Instalar Android SDK manualmente
-      run: |
-        # Instalar herramientas básicas
-        sudo apt update
-        sudo apt install -y wget unzip
+    - name: 📦 Instalar Android SDK
+      uses: android-actions/setup-android@v4
+      with:
+        packages: |
+          platform-tools
+          platforms;android-33
+          build-tools;33.0.0
+          extras;google;m2repository
+          extras;android;m2repository
 
-        # Descargar command-line tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdline-tools.zip
-        sudo mkdir -p /usr/local/lib/android/sdk/cmdline-tools
-        sudo unzip -q /tmp/cmdline-tools.zip -d /usr/local/lib/android/sdk/cmdline-tools
-        sudo mv /usr/local/lib/android/sdk/cmdline-tools/cmdline-tools /usr/local/lib/android/sdk/cmdline-tools/16.0
-
-        # Configurar variables de entorno
-        echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
-        echo "PATH=$PATH:/usr/local/lib/android/sdk/cmdline-tools/16.0/bin:/usr/local/lib/android/sdk/platform-tools" >> $GITHUB_ENV
-
-        # Instalar paquetes necesarios (con aceptación de licencias)
-        yes | /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager --licenses > /dev/null 2>&1
-        /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" "extras;google;m2repository" "extras;android;m2repository" > /dev/null 2>&1
-
-    - name: ✅ Verificar SDK
-      run: |
-        $ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager --list | head -20
+    - name: ✅ Aceptar licencias de Android
+      run: yes | sdkmanager --licenses
 
     - name: 🐍 Instalar Python y dependencias
       run: |
@@ -50,19 +39,15 @@ jobs:
         sudo apt install -y python3 python3-pip
         pip3 install Pillow
 
-    - name: 📁 Crear estructura del proyecto
+    - name: 📁 Generar proyecto con Python
       run: python3 build_pharmatools.py
 
-    - name: 🔨 Generar Gradle Wrapper
-      run: |
-        cd PharmaTools_Inventario
-        gradle wrapper --gradle-version 7.5
-
-    - name: 🚀 Compilar APK
-      run: |
-        cd PharmaTools_Inventario
-        chmod +x gradlew
-        ./gradlew assembleDebug --no-daemon
+    - name: 🚀 Compilar APK con Gradle 7.5
+      uses: gradle/gradle-build-action@v2
+      with:
+        gradle-version: 7.5
+        arguments: assembleDebug
+        build-root-directory: PharmaTools_Inventario
 
     - name: 📤 Subir APK como artefacto
       uses: actions/upload-artifact@v4
