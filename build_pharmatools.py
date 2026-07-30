@@ -43,6 +43,7 @@ def create_project():
     if os.path.exists(project_dir):
         shutil.rmtree(project_dir)
 
+    # Estructura de carpetas
     os.makedirs(os.path.join(project_dir, "app/src/main/java", PACKAGE_PATH))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/layout"))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/values"))
@@ -112,7 +113,7 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
 
-    # app/build.gradle con ML Kit (original)
+    # app/build.gradle
     with open(os.path.join(project_dir, "app/build.gradle"), "w") as f:
         f.write(f"""plugins {{
     id 'com.android.application'
@@ -145,7 +146,6 @@ dependencies {{
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    // ML Kit Barcode Scanning (original, como en FarmaclinicaVerde)
     implementation 'com.google.mlkit:barcode-scanning:17.2.0'
     implementation 'com.google.android.gms:play-services-tasks:18.0.2'
     implementation 'androidx.multidex:multidex:2.0.1'
@@ -192,8 +192,211 @@ dependencies {{
 </manifest>
 """)
 
-    # ... (resto de recursos y layouts igual que antes)
-    # Aquí solo incluyo las clases de escaneo modificadas con GmsBarcodeScanning
+    # Recursos values
+    with open(os.path.join(project_dir, "app/src/main/res/values/colors.xml"), "w") as f:
+        f.write("""<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="color_principal">#38B2AC</color>
+    <color name="color_principal_oscuro">#2C9C96</color>
+    <color name="color_principal_claro">#E6F7F6</color>
+    <color name="fondo_general">#F8F9FA</color>
+    <color name="fondo_tarjeta">#FFFFFF</color>
+    <color name="texto_principal">#212529</color>
+    <color name="texto_secundario">#6C757D</color>
+    <color name="primaryDarkColor">@color/color_principal_oscuro</color>
+    <color name="primaryColor">@color/color_principal</color>
+    <color name="accentColor">@color/color_principal</color>
+    <color name="backgroundColor">@color/fondo_general</color>
+    <color name="surfaceColor">@color/fondo_tarjeta</color>
+</resources>
+""")
+
+    with open(os.path.join(project_dir, "app/src/main/res/values/themes.xml"), "w") as f:
+        f.write("""<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.PharmatoolsTag" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@color/color_principal_oscuro</item>
+        <item name="colorPrimary">@color/color_principal</item>
+        <item name="colorPrimaryVariant">@color/color_principal_oscuro</item>
+        <item name="colorSecondary">@color/color_principal</item>
+        <item name="colorAccent">@color/color_principal</item>
+        <item name="android:colorBackground">@color/fondo_general</item>
+        <item name="colorSurface">@color/fondo_tarjeta</item>
+        <item name="android:textColorPrimary">@color/texto_principal</item>
+        <item name="android:textColorSecondary">@color/texto_secundario</item>
+    </style>
+</resources>
+""")
+
+    with open(os.path.join(project_dir, "app/src/main/res/values/styles.xml"), "w") as f:
+        f.write("""<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="ButtonStyle" parent="Widget.MaterialComponents.Button">
+        <item name="android:backgroundTint">@color/color_principal</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:padding">12dp</item>
+        <item name="cornerRadius">8dp</item>
+        <item name="android:elevation">2dp</item>
+    </style>
+    <style name="ButtonSecondary" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:textColor">@color/color_principal</item>
+        <item name="android:textSize">16sp</item>
+        <item name="cornerRadius">8dp</item>
+        <item name="strokeColor">@color/color_principal</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+</resources>
+""")
+
+    with open(os.path.join(project_dir, "app/src/main/res/values/strings.xml"), "w") as f:
+        f.write("""<resources>
+    <string name="app_name">Pharmatools Tag</string>
+</resources>
+""")
+
+    # Layouts
+    layouts = {
+        "activity_main.xml": """<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="@color/fondo_general">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:padding="24dp">
+        <ImageView
+            android:id="@+id/iv_logo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:adjustViewBounds="true"
+            android:src="@drawable/logo_pharmatools"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Pharmatools Tag"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:textColor="@color/color_principal"
+            android:layout_marginBottom="8dp" />
+        <TextView
+            android:id="@+id/tvUltimaActualizacion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📅 Última actualización: --"
+            android:textSize="14sp"
+            android:textColor="@color/texto_secundario"
+            android:layout_marginBottom="32dp" />
+        <Button android:id="@+id/btnSincronizar" style="@style/ButtonStyle"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="🔄 Sincronizar productos" android:layout_marginBottom="16dp" />
+        <Button android:id="@+id/btnControlEtiquetado" style="@style/ButtonStyle"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="🔍 Control de Etiquetado" android:layout_marginBottom="16dp" />
+        <Button android:id="@+id/btnEtiquetado" style="@style/ButtonStyle"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="🏷️ Etiquetado" android:layout_marginBottom="16dp" />
+        <Button android:id="@+id/btnConfiguracion" style="@style/ButtonSecondary"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="⚙️ Configuración" />
+    </LinearLayout>
+</ScrollView>""",
+        "activity_control_etiquetado.xml": """<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@color/fondo_general">
+    <TextView android:id="@+id/tvEstado" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:text="Escanea o busca un producto"
+        android:textSize="18sp" android:textColor="@color/texto_principal"
+        android:layout_marginBottom="16dp" />
+    <EditText android:id="@+id/etBusqueda" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:hint="🔍 Buscar por nombre o código..."
+        android:inputType="text" android:layout_marginBottom="8dp" />
+    <ListView android:id="@+id/lvResultados" android:layout_width="match_parent"
+        android:layout_height="200dp" android:visibility="gone" />
+    <Button android:id="@+id/btnEscanearControl" style="@style/ButtonStyle"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="📷 Escanear código" android:layout_marginBottom="8dp" />
+    <TextView android:id="@+id/tvDescripcion" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:textSize="16sp"
+        android:textColor="@color/texto_principal" android:layout_marginBottom="8dp" />
+    <TextView android:id="@+id/tvPrecio" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:textSize="16sp"
+        android:textColor="@color/texto_principal" android:layout_marginBottom="16dp" />
+    <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:layout_marginBottom="16dp">
+        <Button android:id="@+id/btnOk" style="@style/ButtonSecondary"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="✅ OK (verificado)" android:enabled="false" />
+        <Button android:id="@+id/btnImprimir" style="@style/ButtonStyle"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="🏷️ Imprimir precio" android:enabled="false"
+            android:layout_marginStart="8dp" />
+        <Button android:id="@+id/btnGenerarCodigo" style="@style/ButtonStyle"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="📦 Crear código" android:enabled="false"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
+    <Button android:id="@+id/btnVolverControl" style="@style/ButtonSecondary"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="🔙 Volver al menú" />
+</LinearLayout>""",
+        "activity_etiquetado_directo.xml": """<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:gravity="center" android:padding="24dp"
+    android:background="@color/fondo_general">
+    <TextView android:id="@+id/tvEstadoDirecto" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:text="📷 Escanea un código para imprimir..."
+        android:textSize="20sp" android:textColor="@color/texto_principal"
+        android:gravity="center" android:layout_marginBottom="32dp" />
+    <Button android:id="@+id/btnVolverDirecto" style="@style/ButtonSecondary"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="🔙 Volver al menú" />
+</LinearLayout>""",
+        "activity_configuracion.xml": """<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="24dp"
+    android:background="@color/fondo_general">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="⚙️ Configuración Avanzada" android:textSize="24sp"
+        android:textStyle="bold" android:textColor="@color/color_principal"
+        android:layout_marginBottom="24dp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="📍 Selecciona la sede" android:textSize="16sp"
+        android:textColor="@color/texto_principal" android:layout_marginBottom="8dp" />
+    <Spinner android:id="@+id/spinnerSede" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginBottom="16dp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="📡 MAC de la impresora" android:textSize="16sp"
+        android:textColor="@color/texto_principal" android:layout_marginBottom="8dp" />
+    <EditText android:id="@+id/etMacImpresora" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:hint="Ej: 60:8A:10:19:48:B4"
+        android:inputType="text" android:layout_marginBottom="16dp" />
+    <Button android:id="@+id/btnGuardarConfig" style="@style/ButtonStyle"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="💾 Guardar configuración" android:layout_marginBottom="16dp" />
+    <Button android:id="@+id/btnVolverConfig" style="@style/ButtonSecondary"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="🔙 Volver al menú" />
+</LinearLayout>"""
+    }
+
+    for name, content in layouts.items():
+        path = os.path.join(project_dir, "app/src/main/res/layout", name)
+        with open(path, "w") as f:
+            f.write(content)
+        print(f"  ✅ {name}")
 
     # Clases Java
     java_files = {
