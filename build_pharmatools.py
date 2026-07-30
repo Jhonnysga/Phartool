@@ -31,31 +31,6 @@ def download_wrapper_jar(dest_dir):
             f.write("")
         print("  ⚠️ Archivo vacío creado (la compilación fallará si no se descarga)")
 
-def download_aar(dest_dir):
-    """Descarga play-services-code-scanner.aar si no existe"""
-    aar_path = os.path.join(dest_dir, "play-services-code-scanner.aar")
-    if os.path.exists(aar_path) and os.path.getsize(aar_path) > 1000:
-        print("  ✅ play-services-code-scanner.aar ya existe")
-        return
-    print("  ⬇️ Descargando play-services-code-scanner.aar...")
-    os.makedirs(dest_dir, exist_ok=True)
-    urls = [
-        "https://maven.google.com/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar",
-        "https://repo1.maven.org/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar",
-        "https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar"
-    ]
-    for url in urls:
-        try:
-            urllib.request.urlretrieve(url, aar_path)
-            if os.path.getsize(aar_path) > 1000:
-                print(f"  ✅ AAR descargado desde {url}")
-                return
-        except:
-            continue
-    print("  ❌ No se pudo descargar el AAR - se creará un archivo vacío")
-    with open(aar_path, "w") as f:
-        f.write("")
-
 def create_icon_png():
     img = Image.new('RGB', (192, 192), color='#38B2AC')
     draw = ImageDraw.Draw(img)
@@ -94,7 +69,17 @@ def create_project():
     os.makedirs(os.path.join(project_dir, "app/libs"))
 
     download_wrapper_jar(os.path.join(project_dir, "gradle/wrapper"))
-    download_aar(os.path.join(project_dir, "app/libs"))
+
+    # El AAR se descargará en el workflow antes de ejecutar este script
+    # Verificamos si existe y lo copiamos si es necesario
+    aar_src = os.path.join(os.getcwd(), "app/libs/play-services-code-scanner.aar")
+    aar_dst = os.path.join(project_dir, "app/libs/play-services-code-scanner.aar")
+    if os.path.exists(aar_src):
+        shutil.copy2(aar_src, aar_dst)
+        print("  ✅ play-services-code-scanner.aar copiado desde app/libs/")
+    else:
+        print("  ⚠️ No se encontró play-services-code-scanner.aar en app/libs/")
+        print("  ⚠️ El workflow debe descargarlo antes de compilar")
 
     # Icono
     icon_path = os.path.join(project_dir, "app/src/main/res/mipmap-hdpi", "ic_pharmatools.png")
@@ -553,7 +538,7 @@ dependencies {{
             f.write(content)
         print(f"  ✅ {name}")
 
-    # ===== CLASES JAVA =====
+    # ===== CLASES JAVA (MANTENER IGUAL) =====
     java_files = {
         "Producto.java": """
 package com.pharmatools.inventario;
