@@ -16,6 +16,7 @@ TARGET_SDK = 33
 MIN_SDK = 29
 
 def download_wrapper_jar(dest_dir):
+    """Descarga gradle-wrapper.jar si no existe"""
     jar_path = os.path.join(dest_dir, "gradle-wrapper.jar")
     if os.path.exists(jar_path):
         print("  ✅ gradle-wrapper.jar ya existe")
@@ -31,13 +32,52 @@ def download_wrapper_jar(dest_dir):
             f.write("")
         print("  ⚠️ Archivo vacío creado (la compilación fallará si no se descarga)")
 
+def download_aar(dest_dir):
+    """Descarga play-services-code-scanner.aar desde Maven Central"""
+    aar_path = os.path.join(dest_dir, "play-services-code-scanner.aar")
+    
+    # Si ya existe y tiene un tamaño razonable, no lo descargamos
+    if os.path.exists(aar_path) and os.path.getsize(aar_path) > 1000:
+        print(f"  ✅ play-services-code-scanner.aar ya existe (tamaño: {os.path.getsize(aar_path)} bytes)")
+        return
+    
+    print("  ⬇️ Descargando play-services-code-scanner.aar desde Maven Central...")
+    os.makedirs(dest_dir, exist_ok=True)
+    
+    # Lista de URLs para intentar (múltiples mirrors)
+    urls = [
+        "https://repo1.maven.org/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar",
+        "https://maven.google.com/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar",
+        "https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar"
+    ]
+    
+    for url in urls:
+        try:
+            print(f"  🔄 Intentando desde: {url}")
+            urllib.request.urlretrieve(url, aar_path)
+            if os.path.getsize(aar_path) > 1000:
+                print(f"  ✅ AAR descargado exitosamente (tamaño: {os.path.getsize(aar_path)} bytes)")
+                return
+        except Exception as e:
+            print(f"  ⚠️ Falló descarga desde {url}: {e}")
+            continue
+    
+    # Si llegamos aquí, todas las descargas fallaron
+    print("  ❌ ERROR CRÍTICO: No se pudo descargar el AAR")
+    print("  ❌ Por favor, descarga manualmente desde:")
+    print("  ❌ https://repo1.maven.org/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar")
+    print("  ❌ Y colócalo en app/libs/ antes de ejecutar nuevamente")
+    sys.exit(1)
+
 def create_icon_png():
+    """Crea el ícono de la aplicación"""
     img = Image.new('RGB', (192, 192), color='#38B2AC')
     draw = ImageDraw.Draw(img)
     draw.text((65, 65), "PT", fill='white')
     return img
 
 def create_logo_xml():
+    """Crea el logo vectorial de la aplicación"""
     return '''<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="120dp"
@@ -56,20 +96,28 @@ def create_logo_xml():
 </vector>'''
 
 def create_project():
+    """Crea todo el proyecto Android"""
     project_dir = os.path.join(os.getcwd(), PROJECT_NAME)
     if os.path.exists(project_dir):
         shutil.rmtree(project_dir)
+        print(f"  🗑️ Eliminado proyecto anterior: {project_dir}")
 
+    print(f"  📁 Creando proyecto en: {project_dir}")
+    
+    # ===== CREAR ESTRUCTURA DE CARPETAS =====
     os.makedirs(os.path.join(project_dir, "app/src/main/java", PACKAGE_PATH))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/layout"))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/values"))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/drawable"))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/mipmap-hdpi"))
     os.makedirs(os.path.join(project_dir, "gradle/wrapper"))
+    os.makedirs(os.path.join(project_dir, "app/libs"))
 
+    # ===== DESCARGAR ARCHIVOS =====
     download_wrapper_jar(os.path.join(project_dir, "gradle/wrapper"))
+    download_aar(os.path.join(project_dir, "app/libs"))
 
-    # Icono
+    # ===== ICONO =====
     icon_path = os.path.join(project_dir, "app/src/main/res/mipmap-hdpi", "ic_pharmatools.png")
     img = create_icon_png()
     img.save(icon_path)
@@ -81,7 +129,7 @@ def create_project():
         shutil.copy(icon_path, dest_dir)
         print(f"  ✅ ic_pharmatools.png copiado a {dens}")
 
-    # Logo vectorial
+    # ===== LOGO VECTORIAL =====
     logo_path = os.path.join(project_dir, "app/src/main/res/drawable", "logo_pharmatools.xml")
     with open(logo_path, "w") as f:
         f.write(create_logo_xml())
@@ -105,8 +153,6 @@ task clean(type: Delete) {
         google()
         mavenCentral()
         gradlePluginPortal()
-        maven {{ url 'https://dl.google.com/dl/android/maven2/' }}
-        maven {{ url 'https://maven.google.com' }}
     }}
 }}
 dependencyResolutionManagement {{
@@ -114,8 +160,6 @@ dependencyResolutionManagement {{
     repositories {{
         google()
         mavenCentral()
-        maven {{ url 'https://dl.google.com/dl/android/maven2/' }}
-        maven {{ url 'https://maven.google.com' }}
     }}
 }}
 rootProject.name = "{PROJECT_NAME}"
@@ -138,7 +182,7 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
 
-    # app/build.gradle - CON DEPENDENCIA MAVEN
+    # app/build.gradle - CON AAR LOCAL
     with open(os.path.join(project_dir, "app/build.gradle"), "w") as f:
         f.write(f"""plugins {{
     id 'com.android.application'
@@ -172,8 +216,8 @@ dependencies {{
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     
-    // ESCÁNER DE GOOGLE PLAY SERVICES
-    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
+    // ESCÁNER DE GOOGLE PLAY SERVICES (desde AAR local)
+    implementation files('libs/play-services-code-scanner.aar')
     implementation 'com.google.android.gms:play-services-base:18.3.0'
     implementation 'com.google.android.gms:play-services-basement:18.3.0'
     implementation 'com.google.android.gms:play-services-tasks:18.1.0'
@@ -1521,7 +1565,7 @@ public class ConfiguracionActivity extends AppCompatActivity {
             f.write(content.strip())
         print(f"  ✅ {fname}")
 
-    # gradlew
+    # ===== GRADLEW SCRIPT =====
     gradlew_path = os.path.join(project_dir, "gradlew")
     with open(gradlew_path, "w") as f:
         f.write("""#!/bin/bash
@@ -1535,7 +1579,8 @@ fi
     os.chmod(gradlew_path, 0o755)
     print("  ✅ gradlew")
 
-    print(f"\n✅ Proyecto creado en: {project_dir}")
+    print(f"\n✅ Proyecto creado exitosamente en: {project_dir}")
+    print(f"📦 Tamaño del proyecto: {sum(os.path.getsize(os.path.join(dirpath,filename)) for dirpath,dirnames,filenames in os.walk(project_dir) for filename in filenames) / 1024 / 1024:.2f} MB")
     return project_dir
 
 if __name__ == "__main__":
