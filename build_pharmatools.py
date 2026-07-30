@@ -16,7 +16,6 @@ TARGET_SDK = 33
 MIN_SDK = 29
 
 def download_wrapper_jar(dest_dir):
-    """Descarga gradle-wrapper.jar desde el repositorio de Gradle."""
     jar_path = os.path.join(dest_dir, "gradle-wrapper.jar")
     if os.path.exists(jar_path):
         print("  ✅ gradle-wrapper.jar ya existe")
@@ -28,7 +27,6 @@ def download_wrapper_jar(dest_dir):
         print("  ✅ gradle-wrapper.jar descargado")
     except Exception as e:
         print(f"  ❌ Error al descargar: {e}")
-        # Crear archivo vacío como fallback
         with open(jar_path, "w") as f:
             f.write("")
         print("  ⚠️ Archivo vacío creado (la compilación fallará si no se descarga)")
@@ -62,7 +60,6 @@ def create_project():
     if os.path.exists(project_dir):
         shutil.rmtree(project_dir)
 
-    # ===== ESTRUCTURA DE CARPETAS =====
     os.makedirs(os.path.join(project_dir, "app/src/main/java", PACKAGE_PATH))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/layout"))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/values"))
@@ -70,10 +67,9 @@ def create_project():
     os.makedirs(os.path.join(project_dir, "app/src/main/res/mipmap-hdpi"))
     os.makedirs(os.path.join(project_dir, "gradle/wrapper"))
 
-    # ===== DESCARGAR GRADLE-WRAPPER.JAR =====
     download_wrapper_jar(os.path.join(project_dir, "gradle/wrapper"))
 
-    # ===== ICONO PNG =====
+    # Icono
     icon_path = os.path.join(project_dir, "app/src/main/res/mipmap-hdpi", "ic_pharmatools.png")
     img = create_icon_png()
     img.save(icon_path)
@@ -85,13 +81,13 @@ def create_project():
         shutil.copy(icon_path, dest_dir)
         print(f"  ✅ ic_pharmatools.png copiado a {dens}")
 
-    # ===== LOGO VECTORIAL =====
+    # Logo vectorial
     logo_path = os.path.join(project_dir, "app/src/main/res/drawable", "logo_pharmatools.xml")
     with open(logo_path, "w") as f:
         f.write(create_logo_xml())
     print("  ✅ logo_pharmatools.xml")
 
-    # ===== ARCHIVOS DE GRADLE =====
+    # Archivos Gradle
     with open(os.path.join(project_dir, "build.gradle"), "w") as f:
         f.write("""plugins {
     id 'com.android.application' version '7.4.2' apply false
@@ -135,7 +131,7 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
 
-    # ===== app/build.gradle =====
+    # app/build.gradle (SÓLO ML Kit, sin play-services-code-scanner)
     with open(os.path.join(project_dir, "app/build.gradle"), "w") as f:
         f.write(f"""plugins {{
     id 'com.android.application'
@@ -168,8 +164,7 @@ dependencies {{
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
-    // 📌 NUEVA DEPENDENCIA para el escáner de código de barras (ML Kit)
+    // ML Kit Barcode Scanning (sin dependencia de Play Services)
     implementation 'com.google.mlkit:barcode-scanning:17.2.0'
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'org.json:json:20230227'
@@ -178,7 +173,7 @@ dependencies {{
 }}
 """)
 
-    # ===== AndroidManifest.xml =====
+    # AndroidManifest.xml
     with open(os.path.join(project_dir, "app/src/main/AndroidManifest.xml"), "w") as f:
         f.write("""<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -199,9 +194,6 @@ dependencies {{
         android:icon="@mipmap/ic_pharmatools"
         android:roundIcon="@mipmap/ic_pharmatools"
         android:usesCleartextTraffic="true">
-        <meta-data
-            android:name="com.google.mlkit.vision.DEPENDENCIES"
-            android:value="barcode_ui" />
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -217,8 +209,7 @@ dependencies {{
 </manifest>
 """)
 
-    # ===== RECURSOS VALUES =====
-    # colors.xml
+    # Recursos values (igual que antes)
     colors_xml = """<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="color_principal">#38B2AC</color>
@@ -239,7 +230,6 @@ dependencies {{
         f.write(colors_xml)
     print("  ✅ colors.xml")
 
-    # themes.xml (CORREGIDO)
     themes_xml = """<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.PharmatoolsTag" parent="Theme.MaterialComponents.DayNight.NoActionBar">
@@ -259,7 +249,6 @@ dependencies {{
         f.write(themes_xml)
     print("  ✅ themes.xml")
 
-    # styles.xml
     styles_xml = """<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="ButtonStyle" parent="Widget.MaterialComponents.Button">
@@ -283,7 +272,6 @@ dependencies {{
         f.write(styles_xml)
     print("  ✅ styles.xml")
 
-    # strings.xml
     strings_xml = """<resources>
     <string name="app_name">Pharmatools Tag</string>
 </resources>
@@ -292,7 +280,7 @@ dependencies {{
         f.write(strings_xml)
     print("  ✅ strings.xml")
 
-    # ===== LAYOUTS =====
+    # Layouts (igual que antes)
     layouts = {
         "activity_main.xml": """<?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
@@ -530,7 +518,7 @@ dependencies {{
             f.write(content)
         print(f"  ✅ {name}")
 
-    # ===== CLASES JAVA =====
+    # ===== CLASES JAVA (CON ML Kit, SIN Play Services) =====
     java_files = {
         "Producto.java": """
 package com.pharmatools.inventario;
@@ -982,30 +970,47 @@ public class MainActivity extends AppCompatActivity {
         "ControlEtiquetadoActivity.java": """
 package com.pharmatools.inventario;
 
+import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.content.ContentValues;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.SparseArray;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import com.google.android.gms.tasks.Task;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import com.google.mlkit.vision.barcode.BarcodeScanner;
+import com.google.mlkit.vision.barcode.BarcodeScanning;
 import com.google.mlkit.vision.barcode.common.Barcode;
-import com.google.android.gms.code_scanner.GmsBarcodeScanner;
+import com.google.mlkit.vision.common.InputImage;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ControlEtiquetadoActivity extends AppCompatActivity {
     private static final String PREFS_NAME = "PharmatoolsPrefs", KEY_MAC = "mac_impresora";
+    private static final int CAMERA_PERMISSION_CODE = 100;
+    private static final int CAMERA_REQUEST_CODE = 101;
+
     private DatabaseHelper dbHelper;
     private BluetoothPrinterService printerService;
-    private GmsBarcodeScanner scanner;
+    private BarcodeScanner barcodeScanner;
     private TextView tvDescripcion, tvPrecio, tvEstado;
     private EditText etBusqueda;
     private ListView lvResultados;
@@ -1022,8 +1027,9 @@ public class ControlEtiquetadoActivity extends AppCompatActivity {
         setContentView(R.layout.activity_control_etiquetado);
         dbHelper = new DatabaseHelper(this);
         printerService = new BluetoothPrinterService();
-        scanner = GmsBarcodeScanner.getInstance(this);
+        barcodeScanner = BarcodeScanning.getClient();
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+
         tvDescripcion = findViewById(R.id.tvDescripcion);
         tvPrecio = findViewById(R.id.tvPrecio);
         tvEstado = findViewById(R.id.tvEstado);
@@ -1034,19 +1040,23 @@ public class ControlEtiquetadoActivity extends AppCompatActivity {
         btnVolver = findViewById(R.id.btnVolverControl);
         btnEscanear = findViewById(R.id.btnEscanearControl);
         btnGenerarCodigo = findViewById(R.id.btnGenerarCodigo);
+
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, new ArrayList<>());
         lvResultados.setAdapter(adapter);
+
         etBusqueda.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { buscarProductos(s.toString()); }
             @Override public void afterTextChanged(Editable s) {}
         });
+
         lvResultados.setOnItemClickListener((parent, view, position, id) -> {
             Producto p = productosEncontrados.get(position);
             mostrarProducto(p);
             lvResultados.setVisibility(android.view.View.GONE);
             etBusqueda.setText("");
         });
+
         btnEscanear.setOnClickListener(v -> iniciarEscaneo());
         btnOk.setOnClickListener(v -> {
             if (ultimoProducto != null) { tvEstado.setText("Verificado. Escanea siguiente."); limpiarPantalla(); }
@@ -1086,16 +1096,49 @@ public class ControlEtiquetadoActivity extends AppCompatActivity {
 
     private void iniciarEscaneo() {
         if (isScanning) return;
-        isScanning = true;
-        Task<Barcode> task = scanner.startScan();
-        task.addOnSuccessListener(barcode -> {
-            String codigo = barcode.getRawValue();
-            procesarCodigo(codigo);
-            isScanning = false;
-        }).addOnFailureListener(e -> {
-            Toast.makeText(this, "Error al escanear", Toast.LENGTH_SHORT).show();
-            isScanning = false;
-        });
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_CODE);
+            return;
+        }
+        dispatchTakePictureIntent();
+    }
+
+    private void dispatchTakePictureIntent() {
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+            startActivityForResult(takePictureIntent, CAMERA_REQUEST_CODE);
+        } else {
+            Toast.makeText(this, "No se puede acceder a la cámara", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == CAMERA_REQUEST_CODE && resultCode == RESULT_OK) {
+            Bundle extras = data.getExtras();
+            Bitmap imageBitmap = (Bitmap) extras.get("data");
+            procesarImagen(imageBitmap);
+        }
+    }
+
+    private void procesarImagen(Bitmap bitmap) {
+        if (bitmap == null) return;
+        InputImage image = InputImage.fromBitmap(bitmap, 0);
+        barcodeScanner.process(image)
+                .addOnSuccessListener(barcodes -> {
+                    if (barcodes.isEmpty()) {
+                        Toast.makeText(this, "No se encontró código", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    String codigo = barcodes.get(0).getRawValue();
+                    procesarCodigo(codigo);
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Error al procesar: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void procesarCodigo(String codigo) {
@@ -1138,40 +1181,59 @@ public class ControlEtiquetadoActivity extends AppCompatActivity {
         lvResultados.setVisibility(android.view.View.GONE);
         etBusqueda.setText("");
     }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == CAMERA_PERMISSION_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                dispatchTakePictureIntent();
+            } else {
+                Toast.makeText(this, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
 }
 """,
         "EtiquetadoDirectoActivity.java": """
 package com.pharmatools.inventario;
 
+import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.Handler;
+import android.provider.MediaStore;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import com.google.android.gms.tasks.Task;
-import com.google.mlkit.vision.barcode.common.Barcode;
-import com.google.android.gms.code_scanner.GmsBarcodeScanner;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import com.google.mlkit.vision.barcode.BarcodeScanner;
+import com.google.mlkit.vision.barcode.BarcodeScanning;
+import com.google.mlkit.vision.common.InputImage;
 
 public class EtiquetadoDirectoActivity extends AppCompatActivity {
     private static final String PREFS_NAME = "PharmatoolsPrefs", KEY_MAC = "mac_impresora";
+    private static final int CAMERA_PERMISSION_CODE = 200;
+    private static final int CAMERA_REQUEST_CODE = 201;
+
     private DatabaseHelper dbHelper;
     private BluetoothPrinterService printerService;
-    private GmsBarcodeScanner scanner;
+    private BarcodeScanner barcodeScanner;
     private TextView tvEstado;
     private Button btnVolver;
     private SharedPreferences prefs;
-    private boolean isScanning = false, isPrinting = false;
-    private int intentosFallidos = 0;
-    private static final int MAX_INTENTOS_FALLIDOS = 2;
-    private static final int TIMEOUT_ESCANEO = 15000;
-    private static final int PAUSA_POST_ESCANEO = 500;
-    private static final int PAUSA_POST_IMPRESION = 2000;
+    private boolean isPrinting = false;
     private Handler handler = new Handler();
-    private Runnable timeoutRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -1179,7 +1241,7 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
         setContentView(R.layout.activity_etiquetado_directo);
         dbHelper = new DatabaseHelper(this);
         printerService = new BluetoothPrinterService();
-        scanner = GmsBarcodeScanner.getInstance(this);
+        barcodeScanner = BarcodeScanning.getClient();
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         tvEstado = findViewById(R.id.tvEstadoDirecto);
         btnVolver = findViewById(R.id.btnVolverDirecto);
@@ -1188,59 +1250,69 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
     }
 
     private void iniciarCicloEscaneo() {
-        intentosFallidos = 0;
         tvEstado.setText("📷 Escanea un código para imprimir...");
-        handler.postDelayed(this::iniciarEscaneoConTimeout, 300);
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_CODE);
+            return;
+        }
+        dispatchTakePictureIntent();
     }
 
-    private void iniciarEscaneoConTimeout() {
-        if (isScanning) return;
-        isScanning = true;
-        timeoutRunnable = () -> {
-            if (isScanning) {
-                isScanning = false;
-                tvEstado.setText("⏰ Tiempo de escaneo agotado");
-                Toast.makeText(EtiquetadoDirectoActivity.this, "No se detectó escaneo. Volviendo al menú.", Toast.LENGTH_SHORT).show();
-                finish();
-            }
-        };
-        handler.postDelayed(timeoutRunnable, TIMEOUT_ESCANEO);
-        Task<Barcode> task = scanner.startScan();
-        task.addOnSuccessListener(barcode -> {
-            handler.removeCallbacks(timeoutRunnable);
-            isScanning = false;
-            String codigo = barcode.getRawValue();
-            handler.postDelayed(() -> procesarCodigo(codigo), PAUSA_POST_ESCANEO);
-        }).addOnFailureListener(e -> {
-            handler.removeCallbacks(timeoutRunnable);
-            isScanning = false;
-            intentosFallidos++;
-            if (intentosFallidos >= MAX_INTENTOS_FALLIDOS) {
-                tvEstado.setText("❌ Error al escanear. Volviendo al menú.");
-                Toast.makeText(EtiquetadoDirectoActivity.this, "Error al escanear. Volviendo al menú.", Toast.LENGTH_SHORT).show();
-                handler.postDelayed(() -> finish(), 1000);
-            } else {
-                tvEstado.setText("⚠️ Error al escanear. Reintentando... (" + intentosFallidos + "/" + MAX_INTENTOS_FALLIDOS + ")");
-                handler.postDelayed(this::iniciarCicloEscaneo, 1500);
-            }
-        });
+    private void dispatchTakePictureIntent() {
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+            startActivityForResult(takePictureIntent, CAMERA_REQUEST_CODE);
+        } else {
+            Toast.makeText(this, "No se puede acceder a la cámara", Toast.LENGTH_SHORT).show();
+            handler.postDelayed(this::finish, 1500);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == CAMERA_REQUEST_CODE && resultCode == RESULT_OK) {
+            Bundle extras = data.getExtras();
+            Bitmap imageBitmap = (Bitmap) extras.get("data");
+            procesarImagen(imageBitmap);
+        } else {
+            // Reintentar después de un momento
+            handler.postDelayed(this::iniciarCicloEscaneo, 1000);
+        }
+    }
+
+    private void procesarImagen(Bitmap bitmap) {
+        if (bitmap == null) {
+            Toast.makeText(this, "Error al capturar imagen", Toast.LENGTH_SHORT).show();
+            handler.postDelayed(this::iniciarCicloEscaneo, 1500);
+            return;
+        }
+        InputImage image = InputImage.fromBitmap(bitmap, 0);
+        barcodeScanner.process(image)
+                .addOnSuccessListener(barcodes -> {
+                    if (barcodes.isEmpty()) {
+                        tvEstado.setText("⚠️ No se detectó código. Reintentando...");
+                        handler.postDelayed(this::iniciarCicloEscaneo, 2000);
+                        return;
+                    }
+                    String codigo = barcodes.get(0).getRawValue();
+                    procesarCodigo(codigo);
+                })
+                .addOnFailureListener(e -> {
+                    tvEstado.setText("❌ Error al procesar: " + e.getMessage());
+                    handler.postDelayed(this::iniciarCicloEscaneo, 2000);
+                });
     }
 
     private void procesarCodigo(String codigo) {
         Producto p = dbHelper.buscarPorRef(codigo);
         if (p == null) {
-            intentosFallidos++;
-            if (intentosFallidos >= MAX_INTENTOS_FALLIDOS) {
-                tvEstado.setText("❌ Producto no encontrado: " + codigo + ". Volviendo al menú.");
-                Toast.makeText(EtiquetadoDirectoActivity.this, "Producto no encontrado. Volviendo al menú.", Toast.LENGTH_SHORT).show();
-                handler.postDelayed(() -> finish(), 1500);
-                return;
-            }
-            tvEstado.setText("⚠️ Producto no encontrado. Reintentando... (" + intentosFallidos + "/" + MAX_INTENTOS_FALLIDOS + ")");
-            handler.postDelayed(this::iniciarCicloEscaneo, 1500);
+            tvEstado.setText("❌ Producto no encontrado: " + codigo);
+            handler.postDelayed(this::iniciarCicloEscaneo, 2000);
             return;
         }
-        intentosFallidos = 0;
         tvEstado.setText("🖨️ Imprimiendo: " + p.getArtDes());
         imprimirEtiqueta(p);
     }
@@ -1266,10 +1338,10 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
                     tvEstado.setText("✅ Etiqueta impresa. Escanea otro producto.");
                     handler.postDelayed(() -> {
                         if (!isFinishing()) {
-                            intentosFallidos = 0;
+                            isPrinting = false;
                             iniciarCicloEscaneo();
                         }
-                    }, PAUSA_POST_IMPRESION);
+                    }, 2000);
                 });
             }
             @Override public void onError(String error) {
@@ -1283,9 +1355,22 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
         });
     }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == CAMERA_PERMISSION_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                dispatchTakePictureIntent();
+            } else {
+                Toast.makeText(this, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        }
+    }
+
     @Override protected void onDestroy() {
         super.onDestroy();
-        handler.removeCallbacks(timeoutRunnable);
         handler.removeCallbacksAndMessages(null);
     }
 }
@@ -1422,7 +1507,7 @@ public class ConfiguracionActivity extends AppCompatActivity {
             f.write(content.strip())
         print(f"  ✅ {fname}")
 
-    # ===== GRADLEW SCRIPT =====
+    # gradlew
     gradlew_path = os.path.join(project_dir, "gradlew")
     with open(gradlew_path, "w") as f:
         f.write("""#!/bin/bash
