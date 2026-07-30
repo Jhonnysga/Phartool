@@ -1544,4 +1544,5 @@ fi
     print(f"\n✅ Proyecto creado en: {project_dir}")
     return project_dir
 
-if __name
+if __name__ == "__main__":
+    create_project()
