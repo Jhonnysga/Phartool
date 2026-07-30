@@ -20,7 +20,7 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: 📦 Instalar Android SDK con todas las dependencias
+    - name: 📦 Instalar Android SDK
       run: |
         sudo apt update
         sudo apt install -y wget unzip curl
@@ -39,8 +39,15 @@ jobs:
         sudo apt install -y python3 python3-pip
         pip3 install Pillow
 
-    - name: 📁 Generar proyecto con Python
+    - name: 📁 Generar proyecto con Python (descarga automática de AAR)
       run: python3 build_pharmatools.py
+
+    - name: ✅ Verificar AAR descargado
+      run: |
+        echo "=== Contenido de app/libs ==="
+        ls -la PharmaTools_Inventario/app/libs/
+        echo "=== Tamaño del AAR ==="
+        du -h PharmaTools_Inventario/app/libs/play-services-code-scanner.aar
 
     - name: ✅ Configurar Gradle Wrapper
       run: |
