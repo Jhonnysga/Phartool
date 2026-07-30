@@ -66,20 +66,8 @@ def create_project():
     os.makedirs(os.path.join(project_dir, "app/src/main/res/drawable"))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/mipmap-hdpi"))
     os.makedirs(os.path.join(project_dir, "gradle/wrapper"))
-    os.makedirs(os.path.join(project_dir, "app/libs"))
 
     download_wrapper_jar(os.path.join(project_dir, "gradle/wrapper"))
-
-    # El AAR se descargará en el workflow antes de ejecutar este script
-    # Verificamos si existe y lo copiamos si es necesario
-    aar_src = os.path.join(os.getcwd(), "app/libs/play-services-code-scanner.aar")
-    aar_dst = os.path.join(project_dir, "app/libs/play-services-code-scanner.aar")
-    if os.path.exists(aar_src):
-        shutil.copy2(aar_src, aar_dst)
-        print("  ✅ play-services-code-scanner.aar copiado desde app/libs/")
-    else:
-        print("  ⚠️ No se encontró play-services-code-scanner.aar en app/libs/")
-        print("  ⚠️ El workflow debe descargarlo antes de compilar")
 
     # Icono
     icon_path = os.path.join(project_dir, "app/src/main/res/mipmap-hdpi", "ic_pharmatools.png")
@@ -117,6 +105,8 @@ task clean(type: Delete) {
         google()
         mavenCentral()
         gradlePluginPortal()
+        maven {{ url 'https://dl.google.com/dl/android/maven2/' }}
+        maven {{ url 'https://maven.google.com' }}
     }}
 }}
 dependencyResolutionManagement {{
@@ -124,6 +114,8 @@ dependencyResolutionManagement {{
     repositories {{
         google()
         mavenCentral()
+        maven {{ url 'https://dl.google.com/dl/android/maven2/' }}
+        maven {{ url 'https://maven.google.com' }}
     }}
 }}
 rootProject.name = "{PROJECT_NAME}"
@@ -146,7 +138,7 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
 
-    # app/build.gradle - CON AAR LOCAL
+    # app/build.gradle - CON DEPENDENCIA MAVEN
     with open(os.path.join(project_dir, "app/build.gradle"), "w") as f:
         f.write(f"""plugins {{
     id 'com.android.application'
@@ -180,8 +172,8 @@ dependencies {{
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     
-    // ESCÁNER DE GOOGLE PLAY SERVICES (desde AAR local)
-    implementation files('libs/play-services-code-scanner.aar')
+    // ESCÁNER DE GOOGLE PLAY SERVICES
+    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
     implementation 'com.google.android.gms:play-services-base:18.3.0'
     implementation 'com.google.android.gms:play-services-basement:18.3.0'
     implementation 'com.google.android.gms:play-services-tasks:18.1.0'
@@ -538,7 +530,7 @@ dependencies {{
             f.write(content)
         print(f"  ✅ {name}")
 
-    # ===== CLASES JAVA (MANTENER IGUAL) =====
+    # ===== CLASES JAVA =====
     java_files = {
         "Producto.java": """
 package com.pharmatools.inventario;
