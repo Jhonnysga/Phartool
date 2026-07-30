@@ -28,7 +28,7 @@ def download_wrapper_jar(dest_dir):
         print(f"  ❌ Error al descargar: {e}")
         with open(jar_path, "w") as f:
             f.write("")
-        print("  ⚠️ Archivo vacío creado (la compilación fallará si no se descarga)")
+        print("  ⚠️ Archivo vacío creado")
 
 def create_icon_png():
     img = Image.new('RGB', (192, 192), color='#38B2AC')
@@ -74,7 +74,6 @@ def create_project():
     download_wrapper_jar(os.path.join(project_dir, "gradle/wrapper"))
 
     # ===== COPIAR AAR DESDE EL REPOSITORIO =====
-    # Buscar el AAR en varias ubicaciones posibles
     aar_src = None
     posibles_ubicaciones = [
         os.path.join(os.getcwd(), "app/libs/play-services-code-scanner.aar"),
@@ -96,13 +95,8 @@ def create_project():
         print(f"  📦 Tamaño: {os.path.getsize(aar_src)} bytes")
     else:
         print("  ❌ ERROR CRÍTICO: No se encontró el AAR")
-        print("  ❌ Buscado en las siguientes ubicaciones:")
-        for ubicacion in posibles_ubicaciones:
-            print(f"  ❌   - {ubicacion}")
         print("  ❌ Asegúrate de tener el archivo en tu repositorio:")
         print("  ❌ app/libs/play-services-code-scanner.aar")
-        print("  ❌ Puedes descargarlo desde:")
-        print("  ❌ https://repo1.maven.org/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar")
         sys.exit(1)
 
     # ===== ICONO =====
@@ -147,6 +141,9 @@ dependencyResolutionManagement {{
     repositories {{
         google()
         mavenCentral()
+        flatDir {{
+            dirs 'libs'
+        }}
     }}
 }}
 rootProject.name = "{PROJECT_NAME}"
@@ -169,7 +166,7 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
 
-    # ===== app/build.gradle - CON AAR LOCAL =====
+    # ===== app/build.gradle - CON AAR LOCAL Y flatDir =====
     with open(os.path.join(project_dir, "app/build.gradle"), "w") as f:
         f.write(f"""plugins {{
     id 'com.android.application'
@@ -195,6 +192,14 @@ android {{
 
     lintOptions {{
         abortOnError false
+    }}
+}}
+
+repositories {{
+    google()
+    mavenCentral()
+    flatDir {{
+        dirs 'libs'
     }}
 }}
 
