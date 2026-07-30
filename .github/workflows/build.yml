@@ -42,9 +42,36 @@ jobs:
     - name: 📁 Generar proyecto con Python
       run: python3 build_pharmatools.py
 
-    - name: 🔧 Reconstruir app/build.gradle con la dependencia correcta
+    - name: 🔧 Reconstruir archivos de Gradle con repositorios correctos
       run: |
         cd PharmaTools_Inventario
+
+        # Reconstruir build.gradle raíz con repositorio google()
+        cat > build.gradle << 'EOF'
+        buildscript {
+            repositories {
+                google()
+                mavenCentral()
+            }
+            dependencies {
+                classpath 'com.android.tools.build:gradle:7.4.2'
+            }
+        }
+
+        allprojects {
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
+
+        task clean(type: Delete) {
+            delete rootProject.buildDir
+        }
+        EOF
+        echo "✅ build.gradle raíz reconstruido"
+
+        # Reconstruir app/build.gradle con dependencia play-services-code-scanner
         cat > app/build.gradle << 'EOF'
         plugins {
             id 'com.android.application'
@@ -84,30 +111,7 @@ jobs:
             implementation 'com.google.code.gson:gson:2.10.1'
         }
         EOF
-        echo "✅ app/build.gradle reconstruido con play-services-code-scanner"
-
-    - name: 🔧 Corregir importaciones en archivos Java
-      run: |
-        cd PharmaTools_Inventario
-        for file in app/src/main/java/com/pharmatools/inventario/ControlEtiquetadoActivity.java app/src/main/java/com/pharmatools/inventario/EtiquetadoDirectoActivity.java; do
-          if [ -f "$file" ]; then
-            # Eliminar cualquier importación incorrecta de ML Kit
-            sed -i '/import com.google.mlkit.vision.barcode/d' "$file"
-            # Agregar la importación correcta de GmsBarcodeScanner
-            sed -i '/^package /a import com.google.android.gms.code_scanner.GmsBarcodeScanner;' "$file"
-            echo "✅ Corregido: $file"
-          fi
-        done
-
-    - name: 🔧 Agregar meta-data al AndroidManifest.xml
-      run: |
-        cd PharmaTools_Inventario
-        if ! grep -q "com.google.mlkit.vision.DEPENDENCIES" app/src/main/AndroidManifest.xml; then
-          sed -i '/<application /a \        <meta-data\n            android:name="com.google.mlkit.vision.DEPENDENCIES"\n            android:value="barcode_ui"/>' app/src/main/AndroidManifest.xml
-          echo "✅ meta-data agregado al AndroidManifest.xml"
-        else
-          echo "✅ meta-data ya presente"
-        fi
+        echo "✅ app/build.gradle reconstruido"
 
     - name: 🚀 Compilar APK con Gradle 7.5
       uses: gradle/gradle-build-action@v2
