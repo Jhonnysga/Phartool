@@ -20,20 +20,33 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: 📦 Configurar Android SDK
-      uses: android-actions/setup-android@v3
-      with:
-        packages: |
-          platform-tools
-          platforms;android-33
-          build-tools;33.0.0
-          extras;google;m2repository
-          extras;android;m2repository
+    - name: 📦 Instalar Android SDK manualmente
+      run: |
+        # Instalar herramientas básicas
+        sudo apt update
+        sudo apt install -y wget unzip
 
-    - name: ✅ Aceptar licencias de Android
-      run: yes | sdkmanager --licenses
+        # Descargar command-line tools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdline-tools.zip
+        sudo mkdir -p /usr/local/lib/android/sdk/cmdline-tools
+        sudo unzip -q /tmp/cmdline-tools.zip -d /usr/local/lib/android/sdk/cmdline-tools
+        sudo mv /usr/local/lib/android/sdk/cmdline-tools/cmdline-tools /usr/local/lib/android/sdk/cmdline-tools/16.0
 
-    - name: 🐍 Instalar Python y dependencias
+        # Configurar variables de entorno (PERMANENTE)
+        echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+        echo "PATH=$PATH:/usr/local/lib/android/sdk/cmdline-tools/16.0/bin:/usr/local/lib/android/sdk/platform-tools" >> $GITHUB_ENV
+
+        # Aceptar licencias (silenciosamente)
+        yes | /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager --licenses > /dev/null 2>&1
+
+        # Instalar paquetes necesarios
+        /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" "extras;google;m2repository" "extras;android;m2repository" > /dev/null 2>&1
+
+    - name: ✅ Verificar SDK
+      run: |
+        $ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager --list | head -20
+
+    - name: 🐍 Instalar Python y Pillow
       run: |
         sudo apt update
         sudo apt install -y python3 python3-pip
@@ -42,56 +55,22 @@ jobs:
     - name: 📁 Generar proyecto con Python
       run: python3 build_pharmatools.py
 
-    - name: 🔧 Corregir app/build.gradle (dependencias)
+    - name: 🔧 Asegurar dependencias en app/build.gradle
       run: |
         cd PharmaTools_Inventario
-        # Reemplazar el contenido de app/build.gradle con las dependencias correctas
-        cat > app/build.gradle << 'EOF'
-        plugins {
-            id 'com.android.application'
-        }
-
-        android {
-            namespace 'com.pharmatools.inventario'
-            compileSdk 33
-
-            defaultConfig {
-                applicationId 'com.pharmatools.inventario'
-                minSdk 29
-                targetSdk 33
-                versionCode 1
-                versionName '1.0'
-                multiDexEnabled true
-            }
-
-            compileOptions {
-                sourceCompatibility JavaVersion.VERSION_11
-                targetCompatibility JavaVersion.VERSION_11
-            }
-
-            lintOptions {
-                abortOnError false
-            }
-        }
-
-        dependencies {
-            implementation 'androidx.appcompat:appcompat:1.6.1'
-            implementation 'com.google.android.material:material:1.9.0'
-            implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-            implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
-            implementation 'androidx.multidex:multidex:2.0.1'
-            implementation 'org.json:json:20230227'
-            implementation 'com.squareup.okhttp3:okhttp:4.12.0'
-            implementation 'com.google.code.gson:gson:2.10.1'
-        }
-        EOF
-        echo "✅ app/build.gradle corregido"
+        # Si el script no agregó play-services-code-scanner, lo hacemos manualmente
+        if ! grep -q "play-services-code-scanner" app/build.gradle; then
+          echo "Agregando dependencia faltante..."
+          sed -i '/dependencies {/a \    implementation '"'"'com.google.android.gms:play-services-code-scanner:16.1.0'"'"'' app/build.gradle
+        else
+          echo "La dependencia ya está presente."
+        fi
 
     - name: 🚀 Compilar APK con Gradle 7.5
       uses: gradle/gradle-build-action@v2
       with:
         gradle-version: 7.5
-        arguments: assembleDebug
+        arguments: assembleDebug --refresh-dependencies
         build-root-directory: PharmaTools_Inventario
 
     - name: 📤 Subir APK como artefacto
