@@ -169,6 +169,8 @@ dependencies {{
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
+    // 📌 NUEVA DEPENDENCIA para el escáner de código de barras (ML Kit)
+    implementation 'com.google.mlkit:barcode-scanning:17.2.0'
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'org.json:json:20230227'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
