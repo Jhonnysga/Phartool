@@ -822,4 +822,717 @@ public class TSPLGenerator {
     public static String generar(String descripcion, double precio) {
         List<String> lineas = wrapText(descripcion, MAX_CHARS_POR_LINEA);
         if (lineas.size() > 5) lineas = lineas.subList(0, 5);
-        String precioStr = String.format("%.
+        String precioStr = String.format("%.2f", precio).replace('.', ',');
+        String[] partes = precioStr.split(",");
+        String entero = partes[0], decimal = partes[1];
+
+        int anchoEntero = entero.length() * ANCHO_DIGITO;
+        int anchoDecimal = 2 * ANCHO_DIGITO;
+        int anchoTotalPrecio = anchoEntero + ANCHO_COMA + anchoDecimal;
+        int xCentroTeorico = (ANCHO_TOTAL_DOTS - anchoTotalPrecio) / 2;
+        int xEntero = xCentroTeorico + OFFSET_PRECIO_HORIZONTAL;
+        int xComa = xEntero + anchoEntero;
+        int xDecimal = xComa + ANCHO_COMA + 2;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("SIZE 55 mm, 40 mm\\r\\nGAP 0 mm, 0 mm\\r\\nDIRECTION 0,0\\r\\nREFERENCE 0,0\\r\\nOFFSET 0 mm\\r\\nSET TEAR ON\\r\\nCLS\\r\\n");
+
+        int numLineas = lineas.size();
+        int yBase = Y_BASE[numLineas - 1];
+        for (int i = 0; i < numLineas; i++) {
+            int x = (ANCHO_TOTAL_DOTS - lineas.get(i).length() * DOT_POR_CAR) / 2 + OFFSET_CENTRADO_HORIZONTAL;
+            int y = yBase + i * STEP_Y;
+            sb.append("TEXT ").append(x).append(",").append(y).append(",\\"2\\",0,1,1,\\"").append(lineas.get(i)).append("\\"\\r\\n");
+        }
+
+        sb.append("TEXT ").append(X_REF).append(",").append(Y_REF).append(",\\"4\\",0,1,1,\\"REF#\\"\\r\\n");
+        for (int i = 0; i < 3; i++) {
+            int dx = (i == 1) ? 1 : 0, dy = (i == 2) ? 1 : 0;
+            sb.append("TEXT ").append(xEntero+dx).append(",").append(Y_PRECIO+dy).append(",\\"5\\",0,2,2,\\"").append(entero).append("\\"\\r\\n");
+        }
+        for (int i = 0; i < 3; i++) {
+            int dx = (i == 1) ? 1 : 0, dy = (i == 2) ? 1 : 0;
+            sb.append("TEXT ").append(xComa+dx).append(",").append(Y_PRECIO+dy).append(",\\"5\\",0,1.2,2,\\",\\"\\r\\n");
+        }
+        for (int i = 0; i < 3; i++) {
+            int dx = (i == 1) ? 1 : 0, dy = (i == 2) ? 1 : 0;
+            sb.append("TEXT ").append(xDecimal+dx).append(",").append(Y_PRECIO+dy).append(",\\"5\\",0,2,2,\\"").append(decimal).append("\\"\\r\\n");
+        }
+        sb.append("PRINT 1,1\\r\\n");
+        return sb.toString();
+    }
+
+    public static String generarConCodigoBarras(String desc, double precio, String codigo) {
+        return generar(desc, precio).replace("PRINT 1,1", "BARCODE 20,180,\\"128\\",80,1,0,2,4,\\"" + codigo + "\\"\\r\\nPRINT 1,1");
+    }
+
+    private static List<String> wrapText(String text, int maxChars) {
+        List<String> lines = new ArrayList<>();
+        String[] words = text.trim().split("\\\\s+");
+        StringBuilder cur = new StringBuilder();
+        for (String w : words) {
+            if (cur.length() + w.length() + 1 <= maxChars) {
+                if (cur.length() > 0) cur.append(" ");
+                cur.append(w);
+            } else {
+                lines.add(cur.toString());
+                cur = new StringBuilder(w);
+            }
+        }
+        if (cur.length() > 0) lines.add(cur.toString());
+        return lines;
+    }
+}
+""",
+        "MainActivity.java": """
+package com.pharmatools.inventario;
+
+import android.app.ProgressDialog;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.appcompat.app.AppCompatActivity;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class MainActivity extends AppCompatActivity {
+    private DatabaseHelper dbHelper;
+    private ExecutorService executor = Executors.newSingleThreadExecutor();
+    private SharedPreferences prefs;
+    private TextView tvUltimaActualizacion;
+    private Button btnSincronizar, btnControl, btnDirecto, btnConfig;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        dbHelper = new DatabaseHelper(this);
+        prefs = getSharedPreferences("PharmatoolsPrefs", MODE_PRIVATE);
+        tvUltimaActualizacion = findViewById(R.id.tvUltimaActualizacion);
+        btnSincronizar = findViewById(R.id.btnSincronizar);
+        btnControl = findViewById(R.id.btnControlEtiquetado);
+        btnDirecto = findViewById(R.id.btnEtiquetado);
+        btnConfig = findViewById(R.id.btnConfiguracion);
+        btnSincronizar.setOnClickListener(v -> sincronizarProductos(true));
+        btnControl.setOnClickListener(v -> startActivity(new Intent(this, ControlEtiquetadoActivity.class)));
+        btnDirecto.setOnClickListener(v -> startActivity(new Intent(this, EtiquetadoDirectoActivity.class)));
+        btnConfig.setOnClickListener(v -> startActivity(new Intent(this, ConfiguracionActivity.class)));
+        mostrarUltimaActualizacion();
+        if (dbHelper.getCantidadProductos() == 0) sincronizarProductos(true);
+        else {
+            long ultima = prefs.getLong("ultima_sincronizacion", 0);
+            if (System.currentTimeMillis() - ultima > 24 * 60 * 60 * 1000) sincronizarProductos(false);
+        }
+    }
+
+    private void sincronizarProductos(boolean mostrarDialogo) {
+        ProgressDialog progress = null;
+        if (mostrarDialogo) {
+            progress = new ProgressDialog(this);
+            progress.setTitle("Sincronizando");
+            progress.setMessage("Descargando catálogo...");
+            progress.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+            progress.setCancelable(false);
+            progress.show();
+        }
+        final ProgressDialog finalProgress = progress;
+        executor.execute(() -> {
+            try {
+                List<Producto> productos = new ApiClient(this).obtenerTodosProductos();
+                dbHelper.sincronizarProductos(productos);
+                prefs.edit().putLong("ultima_sincronizacion", System.currentTimeMillis()).apply();
+                runOnUiThread(() -> {
+                    if (finalProgress != null) finalProgress.dismiss();
+                    mostrarUltimaActualizacion();
+                    Toast.makeText(MainActivity.this, "✅ " + productos.size() + " productos sincronizados", Toast.LENGTH_LONG).show();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    if (finalProgress != null) finalProgress.dismiss();
+                    Toast.makeText(MainActivity.this, "❌ Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+            }
+        });
+    }
+
+    private void mostrarUltimaActualizacion() {
+        long fecha = prefs.getLong("ultima_sincronizacion", 0);
+        tvUltimaActualizacion.setText(fecha == 0 ? "📅 Última actualización: Nunca" :
+                "📅 Última actualización: " + new SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(new Date(fecha)));
+    }
+}
+""",
+        "ControlEtiquetadoActivity.java": """
+package com.pharmatools.inventario;
+
+import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ListView;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import com.google.android.gms.code_scanner.GmsBarcodeScanner;
+import com.google.android.gms.tasks.Task;
+import com.google.mlkit.vision.barcode.common.Barcode;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class ControlEtiquetadoActivity extends AppCompatActivity {
+    private static final String PREFS_NAME = "PharmatoolsPrefs", KEY_MAC = "mac_impresora";
+    private static final int CAMERA_PERMISSION_CODE = 100;
+    private static final int BLUETOOTH_PERMISSION_CODE = 200;
+
+    private DatabaseHelper dbHelper;
+    private BluetoothPrinterService printerService;
+    private GmsBarcodeScanner scanner;
+    private TextView tvDescripcion, tvPrecio, tvEstado;
+    private EditText etBusqueda;
+    private ListView lvResultados;
+    private Button btnOk, btnImprimir, btnVolver, btnEscanear, btnGenerarCodigo;
+    private Producto ultimoProducto;
+    private List<Producto> productosEncontrados = new ArrayList<>();
+    private ArrayAdapter<String> adapter;
+    private SharedPreferences prefs;
+    private boolean isScanning = false;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_control_etiquetado);
+        dbHelper = new DatabaseHelper(this);
+        printerService = new BluetoothPrinterService();
+        scanner = GmsBarcodeScanner.getInstance(this);
+        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+
+        tvDescripcion = findViewById(R.id.tvDescripcion);
+        tvPrecio = findViewById(R.id.tvPrecio);
+        tvEstado = findViewById(R.id.tvEstado);
+        etBusqueda = findViewById(R.id.etBusqueda);
+        lvResultados = findViewById(R.id.lvResultados);
+        btnOk = findViewById(R.id.btnOk);
+        btnImprimir = findViewById(R.id.btnImprimir);
+        btnVolver = findViewById(R.id.btnVolverControl);
+        btnEscanear = findViewById(R.id.btnEscanearControl);
+        btnGenerarCodigo = findViewById(R.id.btnGenerarCodigo);
+
+        adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, new ArrayList<>());
+        lvResultados.setAdapter(adapter);
+
+        etBusqueda.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { buscarProductos(s.toString()); }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+
+        lvResultados.setOnItemClickListener((parent, view, position, id) -> {
+            Producto p = productosEncontrados.get(position);
+            mostrarProducto(p);
+            lvResultados.setVisibility(android.view.View.GONE);
+            etBusqueda.setText("");
+        });
+
+        btnEscanear.setOnClickListener(v -> iniciarEscaneo());
+        btnOk.setOnClickListener(v -> {
+            if (ultimoProducto != null) { tvEstado.setText("Verificado. Escanea siguiente."); limpiarPantalla(); }
+            else Toast.makeText(this, "No hay producto", Toast.LENGTH_SHORT).show();
+        });
+        btnImprimir.setOnClickListener(v -> {
+            if (ultimoProducto != null) imprimirEtiqueta(ultimoProducto);
+            else Toast.makeText(this, "No hay producto", Toast.LENGTH_SHORT).show();
+        });
+        btnGenerarCodigo.setOnClickListener(v -> {
+            if (ultimoProducto != null) generarCodigoBarras(ultimoProducto);
+            else Toast.makeText(this, "Selecciona un producto", Toast.LENGTH_SHORT).show();
+        });
+        btnVolver.setOnClickListener(v -> finish());
+    }
+
+    private void buscarProductos(String query) {
+        if (query.length() < 2) { lvResultados.setVisibility(android.view.View.GONE); return; }
+        productosEncontrados = dbHelper.buscarProductos(query);
+        if (productosEncontrados.isEmpty()) {
+            adapter.clear(); adapter.add("No se encontraron productos");
+            lvResultados.setVisibility(android.view.View.VISIBLE); return;
+        }
+        List<String> opciones = new ArrayList<>();
+        for (Producto p : productosEncontrados) opciones.add(p.getArtDes() + " - " + p.getRef());
+        adapter.clear(); adapter.addAll(opciones);
+        lvResultados.setVisibility(android.view.View.VISIBLE);
+    }
+
+    private void mostrarProducto(Producto p) {
+        ultimoProducto = p;
+        tvDescripcion.setText("📦 " + p.getArtDes());
+        tvPrecio.setText("💰 Precio: " + String.format("%.2f", p.getPrecio()).replace('.', ','));
+        tvEstado.setText("🔍 Verifica físicamente. ¿Está igual?");
+        btnOk.setEnabled(true); btnImprimir.setEnabled(true); btnGenerarCodigo.setEnabled(true);
+    }
+
+    private void iniciarEscaneo() {
+        if (isScanning) return;
+        // Permiso de cámara
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_CODE);
+            return;
+        }
+        // Permisos Bluetooth para Android 12+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN)
+                    != PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{
+                                Manifest.permission.BLUETOOTH_SCAN,
+                                Manifest.permission.BLUETOOTH_CONNECT
+                        }, BLUETOOTH_PERMISSION_CODE);
+                return;
+            }
+        }
+        isScanning = true;
+        tvEstado.setText("📷 Escaneando...");
+        Task<Barcode> task = scanner.startScan();
+        task.addOnSuccessListener(barcode -> {
+            String codigo = barcode.getRawValue();
+            procesarCodigo(codigo);
+            isScanning = false;
+        }).addOnFailureListener(e -> {
+            Toast.makeText(this, "Error al escanear: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            tvEstado.setText("❌ Error al escanear");
+            isScanning = false;
+        });
+    }
+
+    private void procesarCodigo(String codigo) {
+        Producto p = dbHelper.buscarPorRef(codigo);
+        if (p == null) { tvEstado.setText("❌ Producto no encontrado: " + codigo); limpiarPantalla(); }
+        else mostrarProducto(p);
+    }
+
+    private void imprimirEtiqueta(Producto p) {
+        // Verificar permisos Bluetooth antes de imprimir
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.BLUETOOTH_CONNECT}, BLUETOOTH_PERMISSION_CODE);
+                return;
+            }
+        }
+        String tspl = TSPLGenerator.generar(p.getArtDes(), p.getPrecio());
+        String mac = prefs.getString(KEY_MAC, "60:8A:10:19:48:B4");
+        try {
+            BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(mac);
+            tvEstado.setText("🖨️ Imprimiendo...");
+            printerService.print(device, tspl, new BluetoothPrinterService.Callback() {
+                @Override public void onSuccess() {
+                    runOnUiThread(() -> { 
+                        Toast.makeText(ControlEtiquetadoActivity.this, "🏷️ Etiqueta impresa", Toast.LENGTH_SHORT).show();
+                        tvEstado.setText("✅ Etiqueta impresa. Escanea siguiente."); 
+                        limpiarPantalla(); 
+                    });
+                }
+                @Override public void onError(String error) { 
+                    runOnUiThread(() -> {
+                        tvEstado.setText("❌ Error: " + error);
+                        Toast.makeText(ControlEtiquetadoActivity.this, "Error: " + error, Toast.LENGTH_SHORT).show();
+                    });
+                }
+            });
+        } catch (Exception e) {
+            tvEstado.setText("❌ Error Bluetooth: " + e.getMessage());
+            Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void generarCodigoBarras(Producto p) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.BLUETOOTH_CONNECT}, BLUETOOTH_PERMISSION_CODE);
+                return;
+            }
+        }
+        String tspl = TSPLGenerator.generarConCodigoBarras(p.getArtDes(), p.getPrecio(), p.getRef());
+        String mac = prefs.getString(KEY_MAC, "60:8A:10:19:48:B4");
+        try {
+            BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(mac);
+            tvEstado.setText("🖨️ Generando código...");
+            printerService.print(device, tspl, new BluetoothPrinterService.Callback() {
+                @Override public void onSuccess() {
+                    runOnUiThread(() -> { 
+                        Toast.makeText(ControlEtiquetadoActivity.this, "📦 Código de barras impreso", Toast.LENGTH_SHORT).show();
+                        tvEstado.setText("✅ Código impreso. Escanea siguiente."); 
+                        limpiarPantalla(); 
+                    });
+                }
+                @Override public void onError(String error) { 
+                    runOnUiThread(() -> {
+                        tvEstado.setText("❌ Error: " + error);
+                        Toast.makeText(ControlEtiquetadoActivity.this, "Error: " + error, Toast.LENGTH_SHORT).show();
+                    });
+                }
+            });
+        } catch (Exception e) {
+            tvEstado.setText("❌ Error Bluetooth: " + e.getMessage());
+            Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void limpiarPantalla() {
+        ultimoProducto = null;
+        tvDescripcion.setText("");
+        tvPrecio.setText("");
+        btnOk.setEnabled(false); btnImprimir.setEnabled(false); btnGenerarCodigo.setEnabled(false);
+        lvResultados.setVisibility(android.view.View.GONE);
+        etBusqueda.setText("");
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == CAMERA_PERMISSION_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                iniciarEscaneo();
+            } else {
+                Toast.makeText(this, "Permiso de cámara necesario", Toast.LENGTH_SHORT).show();
+            }
+        } else if (requestCode == BLUETOOTH_PERMISSION_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (ultimoProducto != null) imprimirEtiqueta(ultimoProducto);
+                else iniciarEscaneo();
+            } else {
+                Toast.makeText(this, "Permisos Bluetooth necesarios", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+}
+""",
+        "EtiquetadoDirectoActivity.java": """
+package com.pharmatools.inventario;
+
+import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.widget.Button;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import com.google.android.gms.code_scanner.GmsBarcodeScanner;
+import com.google.android.gms.tasks.Task;
+import com.google.mlkit.vision.barcode.common.Barcode;
+
+public class EtiquetadoDirectoActivity extends AppCompatActivity {
+    private static final String PREFS_NAME = "PharmatoolsPrefs", KEY_MAC = "mac_impresora";
+    private static final int CAMERA_PERMISSION_CODE = 100;
+    private static final int BLUETOOTH_PERMISSION_CODE = 200;
+
+    private DatabaseHelper dbHelper;
+    private BluetoothPrinterService printerService;
+    private GmsBarcodeScanner scanner;
+    private TextView tvEstado;
+    private Button btnVolver;
+    private SharedPreferences prefs;
+    private boolean isScanning = false, isPrinting = false;
+    private Handler handler = new Handler();
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_etiquetado_directo);
+        dbHelper = new DatabaseHelper(this);
+        printerService = new BluetoothPrinterService();
+        scanner = GmsBarcodeScanner.getInstance(this);
+        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        tvEstado = findViewById(R.id.tvEstadoDirecto);
+        btnVolver = findViewById(R.id.btnVolverDirecto);
+        btnVolver.setOnClickListener(v -> finish());
+        iniciarCicloEscaneo();
+    }
+
+    private void iniciarCicloEscaneo() {
+        // Verificar permisos de cámara
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_CODE);
+            return;
+        }
+        // Permisos Bluetooth para Android 12+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN)
+                    != PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{
+                                Manifest.permission.BLUETOOTH_SCAN,
+                                Manifest.permission.BLUETOOTH_CONNECT
+                        }, BLUETOOTH_PERMISSION_CODE);
+                return;
+            }
+        }
+        tvEstado.setText("📷 Escanea un código...");
+        if (isScanning) return;
+        isScanning = true;
+        Task<Barcode> task = scanner.startScan();
+        task.addOnSuccessListener(barcode -> {
+            isScanning = false;
+            String codigo = barcode.getRawValue();
+            procesarCodigo(codigo);
+        }).addOnFailureListener(e -> {
+            isScanning = false;
+            tvEstado.setText("❌ Error al escanear: " + e.getMessage());
+            handler.postDelayed(this::iniciarCicloEscaneo, 2000);
+        });
+    }
+
+    private void procesarCodigo(String codigo) {
+        Producto p = dbHelper.buscarPorRef(codigo);
+        if (p == null) {
+            tvEstado.setText("❌ Producto no encontrado: " + codigo);
+            handler.postDelayed(this::iniciarCicloEscaneo, 2000);
+            return;
+        }
+        tvEstado.setText("🖨️ Imprimiendo: " + p.getArtDes());
+        imprimirEtiqueta(p);
+    }
+
+    private void imprimirEtiqueta(Producto p) {
+        if (isPrinting) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.BLUETOOTH_CONNECT}, BLUETOOTH_PERMISSION_CODE);
+                return;
+            }
+        }
+        isPrinting = true;
+        String tspl = TSPLGenerator.generar(p.getArtDes(), p.getPrecio());
+        String mac = prefs.getString(KEY_MAC, "60:8A:10:19:48:B4");
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        if (adapter == null || !adapter.isEnabled()) {
+            tvEstado.setText("❌ Bluetooth no disponible");
+            Toast.makeText(this, "Bluetooth no disponible", Toast.LENGTH_SHORT).show();
+            isPrinting = false;
+            handler.postDelayed(this::iniciarCicloEscaneo, 2000);
+            return;
+        }
+        try {
+            BluetoothDevice device = adapter.getRemoteDevice(mac);
+            printerService.print(device, tspl, new BluetoothPrinterService.Callback() {
+                @Override public void onSuccess() {
+                    runOnUiThread(() -> {
+                        Toast.makeText(EtiquetadoDirectoActivity.this, "🏷️ Etiqueta impresa", Toast.LENGTH_SHORT).show();
+                        isPrinting = false;
+                        tvEstado.setText("✅ Etiqueta impresa. Escanea otro.");
+                        handler.postDelayed(() -> iniciarCicloEscaneo(), 1500);
+                    });
+                }
+                @Override public void onError(String error) {
+                    runOnUiThread(() -> {
+                        tvEstado.setText("❌ Error: " + error);
+                        Toast.makeText(EtiquetadoDirectoActivity.this, "Error al imprimir", Toast.LENGTH_SHORT).show();
+                        isPrinting = false;
+                        handler.postDelayed(() -> iniciarCicloEscaneo(), 2000);
+                    });
+                }
+            });
+        } catch (Exception e) {
+            tvEstado.setText("❌ Error Bluetooth: " + e.getMessage());
+            isPrinting = false;
+            handler.postDelayed(this::iniciarCicloEscaneo, 2000);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == CAMERA_PERMISSION_CODE || requestCode == BLUETOOTH_PERMISSION_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                iniciarCicloEscaneo();
+            } else {
+                Toast.makeText(this, "Permisos necesarios", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        }
+    }
+
+    @Override protected void onDestroy() {
+        super.onDestroy();
+        handler.removeCallbacksAndMessages(null);
+    }
+}
+""",
+        "ConfiguracionActivity.java": """
+package com.pharmatools.inventario;
+
+import android.app.ProgressDialog;
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Spinner;
+import android.widget.Toast;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import java.util.ArrayList;
+import java.util.List;
+
+public class ConfiguracionActivity extends AppCompatActivity {
+    private static final String PREFS_NAME = "PharmatoolsPrefs";
+    private static final String KEY_SEDE = "sede_actual", KEY_CO_ALMA = "co_alma";
+    private static final String KEY_SERVIDOR_ID = "servidor_id", KEY_MAC = "mac_impresora";
+    private Spinner spinnerSede;
+    private EditText etMacImpresora;
+    private Button btnGuardar, btnVolver;
+    private SharedPreferences prefs;
+    private List<SedeApiClient.Sede> sedes = new ArrayList<>();
+    private ArrayAdapter<String> adapter;
+    private ProgressDialog progressDialog;
+
+    @Override protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_configuracion);
+        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        spinnerSede = findViewById(R.id.spinnerSede);
+        etMacImpresora = findViewById(R.id.etMacImpresora);
+        btnGuardar = findViewById(R.id.btnGuardarConfig);
+        btnVolver = findViewById(R.id.btnVolverConfig);
+        adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, new ArrayList<>());
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerSede.setAdapter(adapter);
+        btnGuardar.setOnClickListener(v -> guardarConfiguracion());
+        btnVolver.setOnClickListener(v -> finish());
+        // Carga directa de sedes locales (sin API)
+        cargarSedesRespaldo();
+    }
+
+    private void cargarSedesRespaldo() {
+        sedes.clear();
+        String[][] hardcoded = {
+            {"CATEDRAL","Barquisimeto","02","1"},
+            {"ESTE","Barquisimeto","03","1"},
+            {"OESTE","Barquisimeto","04","1"},
+            {"SAN BENITO (JEBE)","Barquisimeto","08","1"},
+            {"LA FUNDACION","Barquisimeto","PRIN","3"},
+            {"FARMACIA LA 21","Barquisimeto","09","1"},
+            {"FARMACIA CERRITOS BLANCOS","Barquisimeto","11","1"},
+            {"CLINIFARMA CABUDARE","Cabudare","01","1"},
+            {"CHUCHO BRICEÑO","Cabudare","06","1"},
+            {"LA MONTAÑITA","Cabudare","07","1"},
+            {"PLAZA SAN PEDRO","Valera","13","1"},
+            {"YARITAGUA","Yaritagua","PRIN","2"}
+        };
+        for (String[] s : hardcoded) {
+            sedes.add(new SedeApiClient.Sede(s[0], s[1], s[2], Integer.parseInt(s[3])));
+        }
+        cargarSedesEnSpinner();
+        cargarConfiguracionActual();
+        Toast.makeText(this, "Usando lista de sedes local", Toast.LENGTH_LONG).show();
+    }
+
+    private void cargarSedesEnSpinner() {
+        List<String> nombres = new ArrayList<>();
+        for (SedeApiClient.Sede s : sedes) nombres.add(s.nombre + " (" + s.ciudad + ")");
+        adapter.clear(); adapter.addAll(nombres); adapter.notifyDataSetChanged();
+    }
+
+    private void cargarConfiguracionActual() {
+        String sedeActual = prefs.getString(KEY_SEDE, "CATEDRAL");
+        etMacImpresora.setText(prefs.getString(KEY_MAC, "60:8A:10:19:48:B4"));
+        for (int i = 0; i < sedes.size(); i++) {
+            if (sedes.get(i).nombre.equals(sedeActual)) { spinnerSede.setSelection(i); break; }
+        }
+    }
+
+    private void guardarConfiguracion() {
+        int pos = spinnerSede.getSelectedItemPosition();
+        if (pos < 0) { Toast.makeText(this, "Selecciona una sede", Toast.LENGTH_SHORT).show(); return; }
+        SedeApiClient.Sede sede = sedes.get(pos);
+        String mac = etMacImpresora.getText().toString().trim();
+        if (mac.isEmpty()) { Toast.makeText(this, "Ingresa la MAC", Toast.LENGTH_SHORT).show(); return; }
+        if (!mac.matches("^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")) {
+            Toast.makeText(this, "MAC inválida. Ej: 60:8A:10:19:48:B4", Toast.LENGTH_SHORT).show(); return;
+        }
+        int servidorId = sede.nombre.equals("YARITAGUA") ? 2 : sede.nombre.equals("LA FUNDACION") ? 3 : 1;
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString(KEY_SEDE, sede.nombre);
+        editor.putString(KEY_CO_ALMA, sede.idSucursal);
+        editor.putInt(KEY_SERVIDOR_ID, servidorId);
+        editor.putString(KEY_MAC, mac);
+        editor.apply();
+        new AlertDialog.Builder(this)
+            .setTitle("✅ Configuración guardada")
+            .setMessage("Sede: " + sede.nombre + "\\nServidor ID: " + servidorId + "\\nMAC: " + mac +
+                "\\n\\n📌 RECUERDA:\\n• La impresora debe estar EMPAREJADA por Bluetooth\\n• El PIN es: 0000")
+            .setPositiveButton("Entendido", (d,w) -> finish())
+            .setCancelable(false).show();
+    }
+}
+"""
+    }
+
+    for fname, content in java_files.items():
+        path = os.path.join(project_dir, "app/src/main/java", PACKAGE_PATH, fname)
+        with open(path, "w") as f:
+            f.write(content.strip())
+        print(f"  ✅ {fname}")
+
+    # gradlew
+    gradlew_path = os.path.join(project_dir, "gradlew")
+    with open(gradlew_path, "w") as f:
+        f.write("""#!/bin/bash
+if [ -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+    java -cp "gradle/wrapper/gradle-wrapper.jar" org.gradle.wrapper.GradleWrapperMain "$@"
+else
+    echo "Error: gradle-wrapper.jar no encontrado"
+    exit 1
+fi
+""")
+    os.chmod(gradlew_path, 0o755)
+    print("  ✅ gradlew")
+
+    print(f"\n✅ Proyecto creado en: {project_dir}")
+    return project_dir
+
+if __name__ == "__main__":
+    create_project()
