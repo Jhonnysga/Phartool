@@ -6,10 +6,6 @@ import shutil
 import sys
 from PIL import Image, ImageDraw
 
-# ============================================================
-# CONFIGURACIÓN
-# ============================================================
-
 PROJECT_NAME = "PharmaTools_Inventario"
 PACKAGE = "com.pharmatools.inventario"
 PACKAGE_PATH = PACKAGE.replace(".", "/")
@@ -18,19 +14,13 @@ COMPILE_SDK = 33
 TARGET_SDK = 33
 MIN_SDK = 29
 
-# ============================================================
-# FUNCIONES PARA GENERAR IMÁGENES
-# ============================================================
-
 def create_icon_png():
-    """Genera un icono PNG de 192x192 (color turquesa) con texto 'PT'."""
     img = Image.new('RGB', (192, 192), color='#38B2AC')
     draw = ImageDraw.Draw(img)
     draw.text((65, 65), "PT", fill='white')
     return img
 
 def create_logo_xml():
-    """Crea un drawable XML vectorial con un cuadrado turquesa."""
     return '''<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="120dp"
@@ -48,16 +38,11 @@ def create_logo_xml():
         android:pathData="M50,65 L70,65 L70,75 L50,75 Z" />
 </vector>'''
 
-# ============================================================
-# FUNCIÓN PRINCIPAL PARA CREAR EL PROYECTO
-# ============================================================
-
 def create_project():
     project_dir = os.path.join(os.getcwd(), PROJECT_NAME)
     if os.path.exists(project_dir):
         shutil.rmtree(project_dir)
 
-    # Crear estructura base
     os.makedirs(os.path.join(project_dir, "app/src/main/java", PACKAGE_PATH))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/layout"))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/values"))
@@ -65,26 +50,25 @@ def create_project():
     os.makedirs(os.path.join(project_dir, "app/src/main/res/mipmap-hdpi"))
     os.makedirs(os.path.join(project_dir, "gradle/wrapper"))
 
-    # ===== GENERAR ICONO PNG =====
+    # Icono PNG
     icon_path = os.path.join(project_dir, "app/src/main/res/mipmap-hdpi", "ic_pharmatools.png")
     img = create_icon_png()
     img.save(icon_path)
     print("  ✅ ic_pharmatools.png (icono)")
 
-    # Copiar el icono a otras densidades
     for dens in ["mipmap-mdpi", "mipmap-xhdpi", "mipmap-xxhdpi", "mipmap-xxxhdpi"]:
         dest_dir = os.path.join(project_dir, "app/src/main/res", dens)
         os.makedirs(dest_dir, exist_ok=True)
         shutil.copy(icon_path, dest_dir)
         print(f"  ✅ ic_pharmatools.png copiado a {dens}")
 
-    # ===== GENERAR LOGO VECTORIAL =====
+    # Logo vectorial
     logo_path = os.path.join(project_dir, "app/src/main/res/drawable", "logo_pharmatools.xml")
     with open(logo_path, "w") as f:
         f.write(create_logo_xml())
     print("  ✅ logo_pharmatools.xml")
 
-    # ===== ARCHIVOS DE GRADLE =====
+    # Archivos de Gradle
     with open(os.path.join(project_dir, "build.gradle"), "w") as f:
         f.write("""plugins {
     id 'com.android.application' version '7.4.2' apply false
@@ -128,6 +112,7 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
 
+    # app/build.gradle con ZXing (sin Google Play Services)
     with open(os.path.join(project_dir, "app/build.gradle"), "w") as f:
         f.write(f"""plugins {{
     id 'com.android.application'
@@ -160,7 +145,8 @@ dependencies {{
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
+    // ZXing para escáner (sin dependencias de Google Play Services)
+    implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'org.json:json:20230227'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
@@ -168,7 +154,7 @@ dependencies {{
 }}
 """)
 
-    # ===== ANDROID MANIFEST =====
+    # AndroidManifest.xml
     with open(os.path.join(project_dir, "app/src/main/AndroidManifest.xml"), "w") as f:
         f.write("""<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -180,6 +166,7 @@ dependencies {{
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.CAMERA" />
 
     <application
         android:allowBackup="true"
@@ -201,7 +188,7 @@ dependencies {{
 </manifest>
 """)
 
-    # ===== RECURSOS VALUES =====
+    # Recursos values
     with open(os.path.join(project_dir, "app/src/main/res/values/colors.xml"), "w") as f:
         f.write("""<?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -264,7 +251,7 @@ dependencies {{
 </resources>
 """)
 
-    # ===== LAYOUTS =====
+    # Layouts
     layouts = {
         "activity_main.xml": """<?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
@@ -407,7 +394,7 @@ dependencies {{
             f.write(content)
         print(f"  ✅ {name}")
 
-    # ===== CLASES JAVA =====
+    # Clases Java (con ZXing)
     java_files = {
         "Producto.java": """
 package com.pharmatools.inventario;
@@ -862,6 +849,7 @@ package com.pharmatools.inventario;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.SharedPreferences;
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -872,9 +860,9 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-import com.google.android.gms.tasks.Task;
-import com.google.mlkit.vision.barcode.common.Barcode;
-import com.google.android.gms.code_scanner.GmsBarcodeScanner;
+import com.journeyapps.barcodescanner.ScanContract;
+import com.journeyapps.barcodescanner.ScanOptions;
+import com.google.zxing.BarcodeFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -882,7 +870,6 @@ public class ControlEtiquetadoActivity extends AppCompatActivity {
     private static final String PREFS_NAME = "PharmatoolsPrefs", KEY_MAC = "mac_impresora";
     private DatabaseHelper dbHelper;
     private BluetoothPrinterService printerService;
-    private GmsBarcodeScanner scanner;
     private TextView tvDescripcion, tvPrecio, tvEstado;
     private EditText etBusqueda;
     private ListView lvResultados;
@@ -892,13 +879,24 @@ public class ControlEtiquetadoActivity extends AppCompatActivity {
     private ArrayAdapter<String> adapter;
     private SharedPreferences prefs;
 
+    // Registrar el contrato de escaneo
+    private final ScanContract scanContract = new ScanContract() {
+        @Override
+        public void onResult(ScanResult result) {
+            if (result.getContents() != null) {
+                procesarCodigo(result.getContents());
+            } else {
+                Toast.makeText(ControlEtiquetadoActivity.this, "Escaneo cancelado", Toast.LENGTH_SHORT).show();
+            }
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_control_etiquetado);
         dbHelper = new DatabaseHelper(this);
         printerService = new BluetoothPrinterService();
-        scanner = GmsBarcodeScanner.getInstance(this);
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         tvDescripcion = findViewById(R.id.tvDescripcion);
         tvPrecio = findViewById(R.id.tvPrecio);
@@ -939,6 +937,16 @@ public class ControlEtiquetadoActivity extends AppCompatActivity {
         btnVolver.setOnClickListener(v -> finish());
     }
 
+    private void iniciarEscaneo() {
+        ScanOptions options = new ScanOptions();
+        options.setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES);
+        options.setPrompt("Escanea el código de barras");
+        options.setCameraId(0);
+        options.setBeepEnabled(true);
+        options.setBarcodeImageEnabled(true);
+        scanContract.launch(options);
+    }
+
     private void buscarProductos(String query) {
         if (query.length() < 2) { lvResultados.setVisibility(android.view.View.GONE); return; }
         productosEncontrados = dbHelper.buscarProductos(query);
@@ -960,14 +968,10 @@ public class ControlEtiquetadoActivity extends AppCompatActivity {
         btnOk.setEnabled(true); btnImprimir.setEnabled(true); btnGenerarCodigo.setEnabled(true);
     }
 
-    private void iniciarEscaneo() {
-        Task<Barcode> task = scanner.startScan();
-        task.addOnSuccessListener(barcode -> {
-            String codigo = barcode.getRawValue();
-            Producto p = dbHelper.buscarPorRef(codigo);
-            if (p == null) { tvEstado.setText("❌ Producto no encontrado: " + codigo); limpiarPantalla(); }
-            else mostrarProducto(p);
-        }).addOnFailureListener(e -> Toast.makeText(this, "Error escaneo", Toast.LENGTH_SHORT).show());
+    private void procesarCodigo(String codigo) {
+        Producto p = dbHelper.buscarPorRef(codigo);
+        if (p == null) { tvEstado.setText("❌ Producto no encontrado: " + codigo); limpiarPantalla(); }
+        else mostrarProducto(p);
     }
 
     private void imprimirEtiqueta(Producto p) {
@@ -1018,24 +1022,32 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-import com.google.android.gms.tasks.Task;
-import com.google.mlkit.vision.barcode.common.Barcode;
-import com.google.android.gms.code_scanner.GmsBarcodeScanner;
+import com.journeyapps.barcodescanner.ScanContract;
+import com.journeyapps.barcodescanner.ScanOptions;
 
 public class EtiquetadoDirectoActivity extends AppCompatActivity {
     private static final String PREFS_NAME = "PharmatoolsPrefs", KEY_MAC = "mac_impresora";
     private DatabaseHelper dbHelper;
     private BluetoothPrinterService printerService;
-    private GmsBarcodeScanner scanner;
     private TextView tvEstado;
     private Button btnVolver;
     private SharedPreferences prefs;
-    private boolean isScanning = false, isPrinting = false;
+    private boolean isPrinting = false;
     private int intentosFallidos = 0;
-    private static final int MAX_INTENTOS_FALLIDOS = 2, TIMEOUT_ESCANEO = 15000;
-    private static final int PAUSA_POST_ESCANEO = 500, PAUSA_POST_IMPRESION = 2000;
+    private static final int MAX_INTENTOS_FALLIDOS = 2;
     private Handler handler = new Handler();
-    private Runnable timeoutRunnable;
+
+    private final ScanContract scanContract = new ScanContract() {
+        @Override
+        public void onResult(ScanResult result) {
+            if (result.getContents() != null) {
+                procesarCodigo(result.getContents());
+            } else {
+                Toast.makeText(EtiquetadoDirectoActivity.this, "Escaneo cancelado", Toast.LENGTH_SHORT).show();
+                handler.postDelayed(() -> { if (!isFinishing()) iniciarEscaneo(); }, 500);
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -1043,7 +1055,6 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
         setContentView(R.layout.activity_etiquetado_directo);
         dbHelper = new DatabaseHelper(this);
         printerService = new BluetoothPrinterService();
-        scanner = GmsBarcodeScanner.getInstance(this);
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         tvEstado = findViewById(R.id.tvEstadoDirecto);
         btnVolver = findViewById(R.id.btnVolverDirecto);
@@ -1054,36 +1065,17 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
     private void iniciarCicloEscaneo() {
         intentosFallidos = 0;
         tvEstado.setText("📷 Escanea un código para imprimir...");
-        handler.postDelayed(this::iniciarEscaneoConTimeout, 300);
+        handler.postDelayed(this::iniciarEscaneo, 300);
     }
 
-    private void iniciarEscaneoConTimeout() {
-        if (isScanning) return;
-        isScanning = true;
-        timeoutRunnable = () -> {
-            if (isScanning) { isScanning = false; tvEstado.setText("⏰ Tiempo agotado");
-                Toast.makeText(this, "No se detectó escaneo. Volviendo al menú.", Toast.LENGTH_SHORT).show(); finish(); }
-        };
-        handler.postDelayed(timeoutRunnable, TIMEOUT_ESCANEO);
-        scanner.startScan()
-            .addOnSuccessListener(barcode -> {
-                handler.removeCallbacks(timeoutRunnable);
-                isScanning = false;
-                handler.postDelayed(() -> procesarCodigo(barcode.getRawValue()), PAUSA_POST_ESCANEO);
-            })
-            .addOnFailureListener(e -> {
-                handler.removeCallbacks(timeoutRunnable);
-                isScanning = false;
-                intentosFallidos++;
-                if (intentosFallidos >= MAX_INTENTOS_FALLIDOS) {
-                    tvEstado.setText("❌ Error al escanear. Volviendo al menú.");
-                    Toast.makeText(this, "Error al escanear. Volviendo al menú.", Toast.LENGTH_SHORT).show();
-                    handler.postDelayed(this::finish, 1000);
-                } else {
-                    tvEstado.setText("⚠️ Error al escanear. Reintentando... (" + intentosFallidos + "/" + MAX_INTENTOS_FALLIDOS + ")");
-                    handler.postDelayed(this::iniciarCicloEscaneo, 1500);
-                }
-            });
+    private void iniciarEscaneo() {
+        ScanOptions options = new ScanOptions();
+        options.setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES);
+        options.setPrompt("Escanea el código de barras");
+        options.setCameraId(0);
+        options.setBeepEnabled(true);
+        options.setBarcodeImageEnabled(true);
+        scanContract.launch(options);
     }
 
     private void procesarCodigo(String codigo) {
@@ -1097,7 +1089,7 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
                 return;
             }
             tvEstado.setText("⚠️ Producto no encontrado. Reintentando... (" + intentosFallidos + "/" + MAX_INTENTOS_FALLIDOS + ")");
-            handler.postDelayed(this::iniciarCicloEscaneo, 1500);
+            handler.postDelayed(this::iniciarEscaneo, 1500);
             return;
         }
         intentosFallidos = 0;
@@ -1124,7 +1116,7 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
                     Toast.makeText(EtiquetadoDirectoActivity.this, "🏷️ Etiqueta impresa", Toast.LENGTH_SHORT).show();
                     isPrinting = false;
                     tvEstado.setText("✅ Etiqueta impresa. Escanea otro producto.");
-                    handler.postDelayed(() -> { if (!isFinishing()) iniciarCicloEscaneo(); }, PAUSA_POST_IMPRESION);
+                    handler.postDelayed(() -> { if (!isFinishing()) { intentosFallidos = 0; iniciarEscaneo(); } }, 2000);
                 });
             }
             @Override public void onError(String error) {
@@ -1132,7 +1124,7 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
                     tvEstado.setText("❌ Error: " + error);
                     Toast.makeText(EtiquetadoDirectoActivity.this, "Error al imprimir: " + error, Toast.LENGTH_SHORT).show();
                     isPrinting = false;
-                    handler.postDelayed(() -> { if (!isFinishing()) finish(); }, 1500);
+                    handler.postDelayed(this::finish, 1500);
                 });
             }
         });
@@ -1140,7 +1132,6 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
 
     @Override protected void onDestroy() {
         super.onDestroy();
-        handler.removeCallbacks(timeoutRunnable);
         handler.removeCallbacksAndMessages(null);
     }
 }
@@ -1277,7 +1268,7 @@ public class ConfiguracionActivity extends AppCompatActivity {
             f.write(content.strip())
         print(f"  ✅ {fname}")
 
-    # ===== GRADLEW SCRIPT =====
+    # Gradlew
     gradlew_path = os.path.join(project_dir, "gradlew")
     with open(gradlew_path, "w") as f:
         f.write("""#!/bin/bash
@@ -1291,20 +1282,8 @@ fi
     os.chmod(gradlew_path, 0o755)
     print("  ✅ gradlew")
 
-    # ===== GRADLE-WRAPPER.JAR (descargar desde internet) =====
-    # En GitHub Actions, esto no es necesario porque se genera con `gradle wrapper`
-    # Pero lo dejamos como placeholder para que el script lo cree si se ejecuta localmente.
-    wrapper_jar_path = os.path.join(project_dir, "gradle/wrapper/gradle-wrapper.jar")
-    if not os.path.exists(wrapper_jar_path):
-        print("  ⚠️ gradle-wrapper.jar no encontrado. Se generará automáticamente al compilar.")
-        # No lo creamos, porque el workflow lo genera con `gradle wrapper`.
-
     print(f"\n✅ Proyecto creado en: {project_dir}")
     return project_dir
-
-# ============================================================
-# EJECUCIÓN PRINCIPAL
-# ============================================================
 
 if __name__ == "__main__":
     create_project()
