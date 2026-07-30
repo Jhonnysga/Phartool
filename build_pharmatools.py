@@ -175,7 +175,7 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
 
-    # app/build.gradle - CON AAR LOCAL Y DEPENDENCIAS CORRECTAS
+    # ===== app/build.gradle - CON FILE TREE =====
     with open(os.path.join(project_dir, "app/build.gradle"), "w") as f:
         f.write(f"""plugins {{
     id 'com.android.application'
@@ -209,8 +209,8 @@ dependencies {{
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     
-    // ESCÁNER DE GOOGLE PLAY SERVICES (desde AAR local)
-    implementation files('libs/play-services-code-scanner.aar')
+    // INCLUIR TODOS LOS ARCHIVOS DE LA CARPETA libs (incluyendo el AAR)
+    implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
     
     implementation 'com.google.android.gms:play-services-base:18.3.0'
     implementation 'com.google.android.gms:play-services-basement:18.3.0'
@@ -221,6 +221,23 @@ dependencies {{
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.google.code.gson:gson:2.10.1'
 }}
+
+// Tarea para verificar que el AAR existe
+task verifyAar {{
+    doLast {{
+        def aarFile = file('libs/play-services-code-scanner.aar')
+        if (aarFile.exists()) {{
+            println "✅ AAR encontrado: " + aarFile.absolutePath
+            println "📦 Tamaño: " + aarFile.length() + " bytes"
+        }} else {{
+            println "❌ ERROR: AAR NO ENCONTRADO"
+            println "❌ Buscado en: " + aarFile.absolutePath
+            throw new GradleException("No se encontró play-services-code-scanner.aar")
+        }}
+    }}
+}}
+
+preBuild.dependsOn verifyAar
 """)
 
     # ===== ANDROID MANIFEST =====
