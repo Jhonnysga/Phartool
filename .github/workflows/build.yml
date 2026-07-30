@@ -11,16 +11,16 @@ jobs:
     timeout-minutes: 30
 
     steps:
-    - name: Checkout
+    - name: ⬇️ Checkout
       uses: actions/checkout@v4
 
-    - name: Set up Java 17
+    - name: 🔧 Java 17
       uses: actions/setup-java@v4
       with:
         distribution: temurin
         java-version: 17
 
-    - name: Install Android SDK
+    - name: 📦 Instalar Android SDK
       run: |
         sudo apt update
         sudo apt install -y wget unzip
@@ -33,16 +33,23 @@ jobs:
         yes | /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager --licenses > /dev/null 2>&1 || true
         /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" "extras;google;m2repository" "extras;android;m2repository" > /dev/null 2>&1
 
-    - name: Install Python and Pillow
+    - name: 🐍 Python y Pillow
       run: |
         sudo apt update
         sudo apt install -y python3 python3-pip
         pip3 install Pillow
 
-    - name: Generate project with Python
+    - name: 📁 Generar proyecto con Python
       run: python3 build_pharmatools.py
 
-    - name: Setup Gradle Wrapper
+    - name: ✅ Verificar AAR en el proyecto
+      run: |
+        echo "=== Contenido de app/libs ==="
+        ls -la PharmaTools_Inventario/app/libs/
+        echo "=== Tamaño del AAR ==="
+        du -h PharmaTools_Inventario/app/libs/play-services-code-scanner.aar
+
+    - name: ✅ Configurar Gradle Wrapper
       run: |
         cd PharmaTools_Inventario
         if [ ! -f "gradle/wrapper/gradle-wrapper.jar" ]; then
@@ -50,21 +57,21 @@ jobs:
         fi
         chmod +x gradlew
 
-    - name: Build APK
+    - name: 🚀 Compilar APK
       run: |
         cd PharmaTools_Inventario
         ./gradlew clean assembleDebug --refresh-dependencies --no-build-cache --stacktrace
       env:
         ANDROID_HOME: /usr/local/lib/android/sdk
 
-    - name: Upload APK
+    - name: 📤 Subir APK
       uses: actions/upload-artifact@v4
       with:
         name: Pharmatools-Tag-APK
         path: PharmaTools_Inventario/app/build/outputs/apk/debug/*.apk
         retention-days: 30
 
-    - name: Verify APK
+    - name: 📊 Verificar APK
       run: |
         APK="PharmaTools_Inventario/app/build/outputs/apk/debug/app-debug.apk"
         if [ -f "$APK" ]; then 
