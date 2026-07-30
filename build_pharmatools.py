@@ -31,40 +31,6 @@ def download_wrapper_jar(dest_dir):
             f.write("")
         print("  ⚠️ Archivo vacío creado (la compilación fallará si no se descarga)")
 
-def download_aar(dest_dir):
-    """Descarga play-services-code-scanner.aar desde Maven Central"""
-    aar_path = os.path.join(dest_dir, "play-services-code-scanner.aar")
-    
-    if os.path.exists(aar_path) and os.path.getsize(aar_path) > 1000:
-        print(f"  ✅ play-services-code-scanner.aar ya existe (tamaño: {os.path.getsize(aar_path)} bytes)")
-        return
-    
-    print("  ⬇️ Descargando play-services-code-scanner.aar desde Maven Central...")
-    os.makedirs(dest_dir, exist_ok=True)
-    
-    urls = [
-        "https://repo1.maven.org/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar",
-        "https://maven.google.com/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar",
-        "https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar"
-    ]
-    
-    for url in urls:
-        try:
-            print(f"  🔄 Intentando desde: {url}")
-            urllib.request.urlretrieve(url, aar_path)
-            if os.path.getsize(aar_path) > 1000:
-                print(f"  ✅ AAR descargado exitosamente (tamaño: {os.path.getsize(aar_path)} bytes)")
-                return
-        except Exception as e:
-            print(f"  ⚠️ Falló descarga desde {url}: {e}")
-            continue
-    
-    print("  ❌ ERROR CRÍTICO: No se pudo descargar el AAR")
-    print("  ❌ Por favor, descarga manualmente desde:")
-    print("  ❌ https://repo1.maven.org/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar")
-    print("  ❌ Y colócalo en app/libs/ antes de ejecutar nuevamente")
-    sys.exit(1)
-
 def create_icon_png():
     img = Image.new('RGB', (192, 192), color='#38B2AC')
     draw = ImageDraw.Draw(img)
@@ -104,11 +70,8 @@ def create_project():
     os.makedirs(os.path.join(project_dir, "app/src/main/res/drawable"))
     os.makedirs(os.path.join(project_dir, "app/src/main/res/mipmap-hdpi"))
     os.makedirs(os.path.join(project_dir, "gradle/wrapper"))
-    os.makedirs(os.path.join(project_dir, "app/libs"))
 
-    # ===== DESCARGAR ARCHIVOS =====
     download_wrapper_jar(os.path.join(project_dir, "gradle/wrapper"))
-    download_aar(os.path.join(project_dir, "app/libs"))
 
     # ===== ICONO =====
     icon_path = os.path.join(project_dir, "app/src/main/res/mipmap-hdpi", "ic_pharmatools.png")
@@ -146,6 +109,8 @@ task clean(type: Delete) {
         google()
         mavenCentral()
         gradlePluginPortal()
+        maven {{ url 'https://dl.google.com/dl/android/maven2/' }}
+        maven {{ url 'https://maven.google.com' }}
     }}
 }}
 dependencyResolutionManagement {{
@@ -153,6 +118,8 @@ dependencyResolutionManagement {{
     repositories {{
         google()
         mavenCentral()
+        maven {{ url 'https://dl.google.com/dl/android/maven2/' }}
+        maven {{ url 'https://maven.google.com' }}
     }}
 }}
 rootProject.name = "{PROJECT_NAME}"
@@ -175,7 +142,7 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
 
-    # ===== app/build.gradle - CON FILE TREE =====
+    # ===== app/build.gradle - CON DEPENDENCIAS MAVEN =====
     with open(os.path.join(project_dir, "app/build.gradle"), "w") as f:
         f.write(f"""plugins {{
     id 'com.android.application'
@@ -209,35 +176,18 @@ dependencies {{
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     
-    // INCLUIR TODOS LOS ARCHIVOS DE LA CARPETA libs (incluyendo el AAR)
-    implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
-    
+    // GOOGLE PLAY SERVICES Y ML KIT
+    implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
     implementation 'com.google.android.gms:play-services-base:18.3.0'
     implementation 'com.google.android.gms:play-services-basement:18.3.0'
     implementation 'com.google.android.gms:play-services-tasks:18.1.0'
+    implementation 'com.google.mlkit:barcode-scanning:17.2.0'
     
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'org.json:json:20230227'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.google.code.gson:gson:2.10.1'
 }}
-
-// Tarea para verificar que el AAR existe
-task verifyAar {{
-    doLast {{
-        def aarFile = file('libs/play-services-code-scanner.aar')
-        if (aarFile.exists()) {{
-            println "✅ AAR encontrado: " + aarFile.absolutePath
-            println "📦 Tamaño: " + aarFile.length() + " bytes"
-        }} else {{
-            println "❌ ERROR: AAR NO ENCONTRADO"
-            println "❌ Buscado en: " + aarFile.absolutePath
-            throw new GradleException("No se encontró play-services-code-scanner.aar")
-        }}
-    }}
-}}
-
-preBuild.dependsOn verifyAar
 """)
 
     # ===== ANDROID MANIFEST =====
