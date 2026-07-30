@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
     - name: ⬇️ Checkout
@@ -20,10 +20,10 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: 📦 Instalar Android SDK (con todas las licencias)
+    - name: 📦 Instalar Android SDK (con TODAS las licencias)
       run: |
         sudo apt update
-        sudo apt install -y wget unzip
+        sudo apt install -y wget unzip curl
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdline-tools.zip
         sudo mkdir -p /usr/local/lib/android/sdk/cmdline-tools
         sudo unzip -q /tmp/cmdline-tools.zip -d /usr/local/lib/android/sdk/cmdline-tools
@@ -31,10 +31,10 @@ jobs:
         echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
         echo "PATH=$PATH:/usr/local/lib/android/sdk/cmdline-tools/16.0/bin:/usr/local/lib/android/sdk/platform-tools" >> $GITHUB_ENV
 
-        # Aceptar TODAS las licencias (incluyendo Play Services)
+        # Aceptar TODAS las licencias (incluyendo Google Play Services)
         yes | /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager --licenses > /dev/null 2>&1 || true
 
-        # Instalar plataformas, build-tools y extras (esencial para play-services)
+        # Instalar TODO lo necesario
         /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" "extras;google;m2repository" "extras;android;m2repository" > /dev/null 2>&1
 
     - name: 🐍 Python y Pillow
@@ -46,7 +46,7 @@ jobs:
     - name: 📁 Generar proyecto con Python
       run: python3 build_pharmatools.py
 
-    - name: ✅ Gradle Wrapper
+    - name: ✅ Verificar Gradle Wrapper
       run: |
         cd PharmaTools_Inventario
         if [ ! -f "gradle/wrapper/gradle-wrapper.jar" ]; then
@@ -54,9 +54,60 @@ jobs:
         fi
         chmod +x gradlew
 
-    - name: 🚀 Compilar APK (sin cache y con stacktrace)
+    - name: 📥 FORZAR DESCARGA DE DEPENDENCIAS (Paso 1)
       run: |
         cd PharmaTools_Inventario
+        echo "=== FORZANDO DESCARGA DE DEPENDENCIAS ==="
+        # Limpiar caché
+        rm -rf ~/.gradle/caches/
+        rm -rf .gradle
+        
+        # Intentar descargar solo las dependencias
+        ./gradlew --refresh-dependencies dependencies || true
+        ./gradlew forceDownloadDependencies --refresh-dependencies || true
+        ./gradlew app:dependencies --configuration debugCompileClasspath || true
+
+    - name: 📥 FORZAR DESCARGA DE PLAY SERVICES (Paso 2)
+      run: |
+        cd PharmaTools_Inventario
+        echo "=== INTENTANDO DESCARGAR PLAY SERVICES DIRECTAMENTE ==="
+        # Intentar descargar manualmente el AAR
+        mkdir -p app/libs
+        cd app/libs
+        wget -q https://maven.google.com/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar -O play-services-code-scanner.aar || echo "Falló descarga 1"
+        wget -q https://repo1.maven.org/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar -O play-services-code-scanner.aar || echo "Falló descarga 2"
+        wget -q https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar -O play-services-code-scanner.aar || echo "Falló descarga 3"
+        # Verificar si se descargó
+        if [ -f "play-services-code-scanner.aar" ] && [ -s "play-services-code-scanner.aar" ]; then
+          echo "✅ play-services-code-scanner.aar descargado manualmente"
+          echo "Tamaño: $(du -h play-services-code-scanner.aar | cut -f1)"
+        else
+          echo "⚠️ No se pudo descargar manualmente, se usará el repositorio"
+        fi
+
+    - name: 📥 FORZAR DESCARGA DE DEPENDENCIAS (Paso 3)
+      run: |
+        cd PharmaTools_Inventario
+        echo "=== ÚLTIMO INTENTO DE DESCARGA ==="
+        # Configurar Gradle para que use repositorios locales
+        export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false"
+        ./gradlew clean --refresh-dependencies
+        ./gradlew --refresh-dependencies build --dry-run || true
+        ./gradlew app:dependencies --configuration compileClasspath
+
+    - name: 🔍 VERIFICAR DEPENDENCIAS
+      run: |
+        cd PharmaTools_Inventario
+        echo "=== BUSCANDO PLAY SERVICES SCANNER ==="
+        ./gradlew -q app:dependencies --configuration debugCompileClasspath | grep -i "play-services-code-scanner" || echo "⚠️ No se encontró en dependencias, pero continuamos"
+        echo "=== CONTENIDO DE app/libs ==="
+        ls -la app/libs/ || echo "No hay archivos en app/libs"
+
+    - name: 🚀 COMPILAR APK
+      run: |
+        cd PharmaTools_Inventario
+        echo "=== COMPILANDO APK ==="
+        chmod +x gradlew
         ./gradlew clean assembleDebug --refresh-dependencies --no-build-cache --stacktrace
       env:
         ANDROID_HOME: /usr/local/lib/android/sdk
@@ -77,5 +128,7 @@ jobs:
           echo "📁 Ubicación: $APK"
         else 
           echo "❌ Error: APK no encontrado"
+          echo "=== CONTENIDO DE app/build/outputs ==="
+          find PharmaTools_Inventario/app/build/outputs -type f || echo "No hay archivos de salida"
           exit 1
         fi
