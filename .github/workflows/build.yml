@@ -42,27 +42,14 @@ jobs:
     - name: 📁 Generar proyecto con Python
       run: python3 build_pharmatools.py
 
-    - name: 🔧 Reconstruir archivos de Gradle con repositorios correctos
+    - name: 🔧 Reconstruir archivos de Gradle con configuración correcta
       run: |
         cd PharmaTools_Inventario
 
-        # Reconstruir build.gradle raíz con repositorio google()
+        # Reconstruir build.gradle raíz (sin repositorios, solo plugin y clean)
         cat > build.gradle << 'EOF'
-        buildscript {
-            repositories {
-                google()
-                mavenCentral()
-            }
-            dependencies {
-                classpath 'com.android.tools.build:gradle:7.4.2'
-            }
-        }
-
-        allprojects {
-            repositories {
-                google()
-                mavenCentral()
-            }
+        plugins {
+            id 'com.android.application' version '7.4.2' apply false
         }
 
         task clean(type: Delete) {
