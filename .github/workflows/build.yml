@@ -33,6 +33,24 @@ jobs:
         yes | /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager --licenses > /dev/null 2>&1 || true
         /usr/local/lib/android/sdk/cmdline-tools/16.0/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" "extras;google;m2repository" "extras;android;m2repository" > /dev/null 2>&1
 
+    - name: 🔽 Descargar play-services-code-scanner.aar
+      run: |
+        echo "=== DESCARGANDO AAR ==="
+        mkdir -p app/libs
+        cd app/libs
+        # Intentar desde múltiples fuentes
+        wget -q https://maven.google.com/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar -O play-services-code-scanner.aar || \
+        wget -q https://repo1.maven.org/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar -O play-services-code-scanner.aar || \
+        wget -q https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-code-scanner/16.1.0/play-services-code-scanner-16.1.0.aar -O play-services-code-scanner.aar
+        echo "=== VERIFICANDO DESCARGA ==="
+        if [ -f "play-services-code-scanner.aar" ] && [ -s "play-services-code-scanner.aar" ]; then
+          echo "✅ AAR descargado exitosamente"
+          echo "📦 Tamaño: $(du -h play-services-code-scanner.aar | cut -f1)"
+        else
+          echo "❌ Error: No se pudo descargar el AAR"
+          exit 1
+        fi
+
     - name: 🐍 Python y Pillow
       run: |
         sudo apt update
@@ -42,12 +60,11 @@ jobs:
     - name: 📁 Generar proyecto con Python
       run: python3 build_pharmatools.py
 
-    - name: ✅ Verificar archivos AAR
+    - name: ✅ Verificar AAR en el proyecto
       run: |
-        echo "=== Contenido de app/libs ==="
+        echo "=== Verificando AAR en PharmaTools_Inventario ==="
         ls -la PharmaTools_Inventario/app/libs/
-        echo "=== Tamaño del AAR ==="
-        du -h PharmaTools_Inventario/app/libs/play-services-code-scanner.aar || echo "AAR no encontrado"
+        du -h PharmaTools_Inventario/app/libs/play-services-code-scanner.aar || echo "⚠️ AAR no encontrado"
 
     - name: ✅ Configurar Gradle Wrapper
       run: |
