@@ -170,7 +170,7 @@ dependencies {{
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     
-    // GOOGLE CODE SCANNER API
+    // GOOGLE CODE SCANNER API (versión correcta)
     implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
     
     implementation 'androidx.multidex:multidex:2.0.1'
@@ -531,7 +531,7 @@ dependencies {{
             f.write(content)
         print(f"  ✅ {name}")
 
-    # ===== CLASES JAVA CON GOOGLE SCANNER =====
+    # ===== CLASES JAVA CON GOOGLE CODE SCANNER =====
     java_files = {
         "Producto.java": """
 package com.pharmatools.inventario;
@@ -1004,8 +1004,8 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.google.android.gms.code_scanner.GmsBarcodeScanner;
-import com.google.android.gms.code_scanner.GmsBarcodeScanning;
 import com.google.android.gms.code_scanner.GmsBarcodeScannerOptions;
+import com.google.android.gms.code_scanner.GmsBarcodeScanning;
 import com.google.android.gms.tasks.Task;
 import com.google.mlkit.vision.barcode.common.Barcode;
 
@@ -1037,10 +1037,10 @@ public class ControlEtiquetadoActivity extends AppCompatActivity {
         dbHelper = new DatabaseHelper(this);
         printerService = new BluetoothPrinterService();
         
-        // Configurar el escáner de Google con opciones
+        // CONFIGURAR EL ESCÁNER DE GOOGLE (SEGÚN EL EJEMPLO OFICIAL)
         GmsBarcodeScannerOptions options = new GmsBarcodeScannerOptions.Builder()
                 .setBarcodeFormats(
-                        Barcode.FORMAT_ALL_FORMATS
+                        Barcode.FORMAT_ALL_FORMATS  // Escanea todos los formatos
                 )
                 .build();
         scanner = GmsBarcodeScanning.getClient(this, options);
@@ -1275,8 +1275,8 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.google.android.gms.code_scanner.GmsBarcodeScanner;
-import com.google.android.gms.code_scanner.GmsBarcodeScanning;
 import com.google.android.gms.code_scanner.GmsBarcodeScannerOptions;
+import com.google.android.gms.code_scanner.GmsBarcodeScanning;
 import com.google.android.gms.tasks.Task;
 import com.google.mlkit.vision.barcode.common.Barcode;
 
@@ -1301,7 +1301,7 @@ public class EtiquetadoDirectoActivity extends AppCompatActivity {
         dbHelper = new DatabaseHelper(this);
         printerService = new BluetoothPrinterService();
         
-        // Configurar el escáner de Google con opciones
+        // CONFIGURAR EL ESCÁNER DE GOOGLE (SEGÚN EL EJEMPLO OFICIAL)
         GmsBarcodeScannerOptions options = new GmsBarcodeScannerOptions.Builder()
                 .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
                 .build();
