@@ -12,7 +12,7 @@ PACKAGE = "com.pharmatools.inventario"
 PACKAGE_PATH = PACKAGE.replace(".", "/")
 COMPILE_SDK = 33
 TARGET_SDK = 33
-MIN_SDK = 29
+MIN_SDK = 21  # Requerido por Google Code Scanner
 
 def download_wrapper_jar(dest_dir):
     jar_path = os.path.join(dest_dir, "gradle-wrapper.jar")
@@ -90,11 +90,10 @@ def create_project():
         f.write(create_logo_xml())
     print("  ✅ logo_pharmatools.xml")
 
-    # ===== GRADLE FILES (CON KOTLIN) =====
+    # ===== GRADLE FILES =====
     with open(os.path.join(project_dir, "build.gradle"), "w") as f:
         f.write("""plugins {
     id 'com.android.application' version '7.4.2' apply false
-    id 'org.jetbrains.kotlin.android' version '1.8.20' apply false
 }
 
 task clean(type: Delete) {
@@ -127,7 +126,6 @@ android.useAndroidX=true
 android.enableJetifier=true
 org.gradle.daemon=false
 org.gradle.parallel=false
-kotlin.code.style=official
 """)
 
     with open(os.path.join(project_dir, "gradle/wrapper/gradle-wrapper.properties"), "w") as f:
@@ -138,11 +136,10 @@ zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """)
 
-    # ===== app/build.gradle (CON KOTLIN) =====
+    # ===== app/build.gradle - CON GOOGLE CODE SCANNER =====
     with open(os.path.join(project_dir, "app/build.gradle"), "w") as f:
         f.write(f"""plugins {{
     id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
 }}
 
 android {{
@@ -163,26 +160,18 @@ android {{
         targetCompatibility JavaVersion.VERSION_11
     }}
 
-    kotlinOptions {{
-        jvmTarget = '11'
-    }}
-
     lintOptions {{
         abortOnError false
     }}
 }}
 
 dependencies {{
-    implementation 'androidx.core:core-ktx:1.10.1'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     
-    // ESCÁNER DE GOOGLE PLAY SERVICES
+    // GOOGLE CODE SCANNER API
     implementation 'com.google.android.gms:play-services-code-scanner:16.1.0'
-    implementation 'com.google.android.gms:play-services-base:18.3.0'
-    implementation 'com.google.android.gms:play-services-basement:18.3.0'
-    implementation 'com.google.android.gms:play-services-tasks:18.1.0'
     
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'org.json:json:20230227'
@@ -212,6 +201,12 @@ dependencies {{
         android:icon="@mipmap/ic_pharmatools"
         android:roundIcon="@mipmap/ic_pharmatools"
         android:usesCleartextTraffic="true">
+        
+        <!-- CLAVE: Permite que Google Play Services descargue el escáner -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="barcode_ui" />
+        
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -355,7 +350,7 @@ dependencies {{
             style="@style/ButtonStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="🏷️ Etiquetado"
+            android:text="🏷️ Etiquetado Directo"
             android:layout_marginBottom="16dp" />
         <Button
             android:id="@+id/btnConfiguracion"
@@ -536,986 +531,1017 @@ dependencies {{
             f.write(content)
         print(f"  ✅ {name}")
 
-    # ===== CLASES KOTLIN =====
-    kotlin_files = {
-        "Producto.kt": """
-package com.pharmatools.inventario
+    # ===== CLASES JAVA CON GOOGLE SCANNER =====
+    java_files = {
+        "Producto.java": """
+package com.pharmatools.inventario;
 
-data class Producto(
-    val ref: String,
-    val artDes: String,
-    val precio: Double
-)
+public class Producto {
+    private String ref;
+    private String art_des;
+    private double prec_vta_usd;
+
+    public Producto(String ref, String art_des, double prec_vta_usd) {
+        this.ref = ref;
+        this.art_des = art_des;
+        this.prec_vta_usd = prec_vta_usd;
+    }
+
+    public String getRef() { return ref; }
+    public String getArtDes() { return art_des; }
+    public double getPrecio() { return prec_vta_usd; }
+}
 """,
-        "DatabaseHelper.kt": """
-package com.pharmatools.inventario
+        "DatabaseHelper.java": """
+package com.pharmatools.inventario;
 
-import android.content.ContentValues
-import android.content.Context
-import android.database.Cursor
-import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteOpenHelper
+import android.content.ContentValues;
+import android.content.Context;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
+import java.util.ArrayList;
+import java.util.List;
 
-class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, VERSION) {
+public class DatabaseHelper extends SQLiteOpenHelper {
+    private static final String DB_NAME = "productos.db";
+    private static final int VERSION = 1;
 
-    companion object {
-        private const val DB_NAME = "productos.db"
-        private const val VERSION = 1
+    public DatabaseHelper(Context context) { super(context, DB_NAME, null, VERSION); }
+
+    @Override public void onCreate(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE productos (ref TEXT PRIMARY KEY, art_des TEXT, prec_vta_usd REAL)");
     }
 
-    override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL("CREATE TABLE productos (ref TEXT PRIMARY KEY, art_des TEXT, prec_vta_usd REAL)")
+    @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        db.execSQL("DROP TABLE IF EXISTS productos");
+        onCreate(db);
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS productos")
-        onCreate(db)
-    }
-
-    fun sincronizarProductos(productos: List<Producto>) {
-        val db = writableDatabase
-        db.beginTransaction()
+    public void sincronizarProductos(List<Producto> productos) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
         try {
-            db.delete("productos", null, null)
-            for (p in productos) {
-                val cv = ContentValues().apply {
-                    put("ref", p.ref)
-                    put("art_des", p.artDes)
-                    put("prec_vta_usd", p.precio)
-                }
-                db.insert("productos", null, cv)
+            db.delete("productos", null, null);
+            for (Producto p : productos) {
+                ContentValues cv = new ContentValues();
+                cv.put("ref", p.getRef());
+                cv.put("art_des", p.getArtDes());
+                cv.put("prec_vta_usd", p.getPrecio());
+                db.insert("productos", null, cv);
             }
-            db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
-            db.close()
-        }
+            db.setTransactionSuccessful();
+        } finally { db.endTransaction(); db.close(); }
     }
 
-    fun buscarPorRef(ref: String): Producto? {
-        val db = readableDatabase
-        val c = db.query("productos", null, "ref=?", arrayOf(ref), null, null, null)
-        return if (c != null && c.moveToFirst()) {
-            Producto(c.getString(0), c.getString(1), c.getDouble(2))
-        } else null
+    public Producto buscarPorRef(String ref) {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor c = db.query("productos", null, "ref=?", new String[]{ref}, null, null, null);
+        if (c != null && c.moveToFirst()) {
+            return new Producto(c.getString(0), c.getString(1), c.getDouble(2));
+        }
+        return null;
     }
 
-    fun buscarProductos(query: String): List<Producto> {
-        val resultados = mutableListOf<Producto>()
-        val db = readableDatabase
-        val palabras = query.trim().split("\\\\s+".toRegex())
-        val whereClause = StringBuilder()
-        val args = mutableListOf<String>()
+    public List<Producto> buscarProductos(String query) {
+        List<Producto> resultados = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        String[] palabras = query.trim().split("\\\\s+");
+        StringBuilder whereClause = new StringBuilder();
+        List<String> args = new ArrayList<>();
 
-        for (palabra in palabras) {
-            if (whereClause.isNotEmpty()) whereClause.append(" AND ")
-            whereClause.append("(art_des LIKE ? OR ref LIKE ?)")
-            args.add("%$palabra%")
-            args.add("%$palabra%")
+        for (String palabra : palabras) {
+            if (whereClause.length() > 0) whereClause.append(" AND ");
+            whereClause.append("(art_des LIKE ? OR ref LIKE ?)");
+            args.add("%" + palabra + "%");
+            args.add("%" + palabra + "%");
         }
 
-        val c = db.query("productos", null, whereClause.toString(),
-            args.toTypedArray(), null, null, "art_des ASC LIMIT 50")
+        Cursor c = db.query("productos", null, whereClause.toString(),
+                args.toArray(new String[0]), null, null, "art_des ASC LIMIT 50");
 
         while (c.moveToNext()) {
-            resultados.add(Producto(c.getString(0), c.getString(1), c.getDouble(2)))
+            resultados.add(new Producto(c.getString(0), c.getString(1), c.getDouble(2)));
         }
-        c.close()
-        db.close()
-        return resultados
+        c.close(); db.close();
+        return resultados;
     }
 
-    fun getCantidadProductos(): Int {
-        val db = readableDatabase
-        val c = db.rawQuery("SELECT COUNT(*) FROM productos", null)
-        val count = if (c.moveToFirst()) c.getInt(0) else 0
-        c.close()
-        db.close()
-        return count
+    public int getCantidadProductos() {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor c = db.rawQuery("SELECT COUNT(*) FROM productos", null);
+        int count = 0;
+        if (c.moveToFirst()) count = c.getInt(0);
+        c.close(); db.close();
+        return count;
     }
 }
 """,
-        "ApiClient.kt": """
-package com.pharmatools.inventario
+        "ApiClient.java": """
+package com.pharmatools.inventario;
 
-import android.content.Context
-import android.content.SharedPreferences
-import com.google.gson.Gson
-import com.google.gson.JsonObject
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.util.concurrent.TimeUnit
+import android.content.Context;
+import android.content.SharedPreferences;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
-class ApiClient(private val context: Context) {
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(120, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS)
-        .writeTimeout(120, TimeUnit.SECONDS)
-        .build()
-    private val gson = Gson()
+public class ApiClient {
+    private static final String PREFS_NAME = "PharmatoolsPrefs";
+    private static final String KEY_CO_ALMA = "co_alma";
+    private static final String KEY_SERVIDOR_ID = "servidor_id";
+    private static final String BASE_URL = "https://citasprevimedicaidb.com:3276/api/Art/";
 
-    private fun getCoAlma(): String {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString(KEY_CO_ALMA, "02") ?: "02"
+    private Context context;
+    private OkHttpClient client;
+    private Gson gson;
+
+    public ApiClient(Context context) {
+        this.context = context;
+        this.client = new OkHttpClient.Builder()
+                .connectTimeout(120, TimeUnit.SECONDS)
+                .readTimeout(120, TimeUnit.SECONDS)
+                .writeTimeout(120, TimeUnit.SECONDS)
+                .build();
+        this.gson = new Gson();
     }
 
-    private fun getServidorId(): Int {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getInt(KEY_SERVIDOR_ID, 1)
+    private String getCoAlma() {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getString(KEY_CO_ALMA, "02");
     }
 
-    fun obtenerTodosProductos(): List<Producto> {
-        val coAlma = getCoAlma()
-        val servidorId = getServidorId()
-        val url = "$BASE_URL?page=1&perPage=10000&co_alma=$coAlma&servidorId=$servidorId"
-        val request = Request.Builder().url(url).build()
-        val response = client.newCall(request).execute()
-        if (!response.isSuccessful) throw IOException("Error HTTP: ${response.code}")
-        val json = response.body?.string() ?: throw IOException("Respuesta vacía")
-        val root = gson.fromJson(json, JsonObject::class.java)
-        val list = root.getAsJsonObject("result").getAsJsonArray("list")
-        return list.map { item ->
-            val obj = item.asJsonObject
-            Producto(obj.get("ref").asString, obj.get("art_des").asString, obj.get("prec_vta_usd").asDouble)
-        }
+    private int getServidorId() {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getInt(KEY_SERVIDOR_ID, 1);
     }
 
-    fun obtenerProductoPorRef(ref: String): Producto? {
-        val coAlma = getCoAlma()
-        val servidorId = getServidorId()
-        val url = "$BASE_URL?page=1&perPage=1&filter=$ref&co_alma=$coAlma&servidorId=$servidorId"
-        val request = Request.Builder().url(url).build()
-        val response = client.newCall(request).execute()
-        if (!response.isSuccessful) return null
-        val json = response.body?.string() ?: return null
-        val root = gson.fromJson(json, JsonObject::class.java)
-        if (root.get("succeeded").asBoolean) {
-            val list = root.getAsJsonObject("result").getAsJsonArray("list")
-            if (list.size() > 0) {
-                val item = list.get(0).asJsonObject
-                return Producto(item.get("ref").asString, item.get("art_des").asString, item.get("prec_vta_usd").asDouble)
+    public List<Producto> obtenerTodosProductos() throws IOException {
+        String coAlma = getCoAlma();
+        int servidorId = getServidorId();
+        String url = BASE_URL + "?page=1&perPage=10000&co_alma=" + coAlma + "&servidorId=" + servidorId;
+        Request request = new Request.Builder().url(url).build();
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) throw new IOException("Error HTTP: " + response.code());
+            String json = response.body().string();
+            JsonObject root = gson.fromJson(json, JsonObject.class);
+            JsonArray list = root.getAsJsonObject("result").getAsJsonArray("list");
+            List<Producto> productos = new ArrayList<>();
+            for (int i = 0; i < list.size(); i++) {
+                JsonObject item = list.get(i).getAsJsonObject();
+                productos.add(new Producto(item.get("ref").getAsString(), item.get("art_des").getAsString(), item.get("prec_vta_usd").getAsDouble()));
             }
+            return productos;
         }
-        return null
     }
 
-    companion object {
-        private const val PREFS_NAME = "PharmatoolsPrefs"
-        private const val KEY_CO_ALMA = "co_alma"
-        private const val KEY_SERVIDOR_ID = "servidor_id"
-        private const val BASE_URL = "https://citasprevimedicaidb.com:3276/api/Art/"
-    }
-}
-""",
-        "SedeApiClient.kt": """
-package com.pharmatools.inventario
-
-import com.google.gson.Gson
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.util.concurrent.TimeUnit
-
-class SedeApiClient {
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .build()
-    private val gson = Gson()
-
-    data class Sede(val nombre: String, val ciudad: String, val idSucursal: String, val servidorId: Int)
-
-    fun obtenerSedes(): List<Sede> {
-        val request = Request.Builder().url(BASE_URL).build()
-        val response = client.newCall(request).execute()
-        if (!response.isSuccessful) throw IOException("Error HTTP: ${response.code}")
-        val json = response.body?.string() ?: throw IOException("Respuesta vacía")
-        val jsonArray = gson.fromJson(json, Array<SedeData>::class.java)
-        return jsonArray.map { Sede(it.nombre, it.ciudad, it.idSucursalExt.trim(), it.servidorId) }
-    }
-
-    private data class SedeData(
-        val nombre: String,
-        val ciudad: String,
-        val id_sucursal_ext: String,
-        val servidorId: Int
-    ) {
-        val idSucursalExt = id_sucursal_ext
-    }
-
-    companion object {
-        private const val BASE_URL = "https://citasprevimedicaidb.com:3276/api/Sucursal/ListarSedesCiudad/"
-    }
-}
-""",
-        "BluetoothPrinterService.kt": """
-package com.pharmatools.inventario
-
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothSocket
-import android.os.Handler
-import android.os.Looper
-import java.io.OutputStream
-import java.nio.charset.StandardCharsets
-import java.util.UUID
-
-class BluetoothPrinterService {
-    private val handler = Handler(Looper.getMainLooper())
-
-    interface Callback {
-        fun onSuccess()
-        fun onError(error: String)
-    }
-
-    fun print(device: BluetoothDevice, command: String, callback: Callback) {
-        Thread {
-            try {
-                val socket = device.createRfcommSocketToServiceRecord(UUID_SPP)
-                BluetoothAdapter.getDefaultAdapter().cancelDiscovery()
-                socket.connect()
-                val out = socket.outputStream
-                out.write("$command\\r\\n".toByteArray(StandardCharsets.UTF_8))
-                out.flush()
-                Thread.sleep(500)
-                handler.post { callback.onSuccess() }
-                socket.close()
-            } catch (e: Exception) {
-                handler.post { callback.onError(e.message ?: "Error desconocido") }
+    public Producto obtenerProductoPorRef(String ref) throws IOException {
+        String coAlma = getCoAlma();
+        int servidorId = getServidorId();
+        String url = BASE_URL + "?page=1&perPage=1&filter=" + ref + "&co_alma=" + coAlma + "&servidorId=" + servidorId;
+        Request request = new Request.Builder().url(url).build();
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) return null;
+            String json = response.body().string();
+            JsonObject root = gson.fromJson(json, JsonObject.class);
+            if (root.get("succeeded").getAsBoolean()) {
+                JsonArray list = root.getAsJsonObject("result").getAsJsonArray("list");
+                if (list.size() > 0) {
+                    JsonObject item = list.get(0).getAsJsonObject();
+                    return new Producto(item.get("ref").getAsString(), item.get("art_des").getAsString(), item.get("prec_vta_usd").getAsDouble());
+                }
             }
-        }.start()
-    }
-
-    companion object {
-        private val UUID_SPP = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+            return null;
+        }
     }
 }
 """,
-        "TSPLGenerator.kt": """
-package com.pharmatools.inventario
+        "SedeApiClient.java": """
+package com.pharmatools.inventario;
 
-import kotlin.math.min
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
-object TSPLGenerator {
-    private const val ANCHO_TOTAL_DOTS = 440
-    private const val MAX_CHARS_POR_LINEA = 32
-    private const val DOT_POR_CAR = 12
-    private const val OFFSET_CENTRADO_HORIZONTAL = -10
-    private const val STEP_Y = 25
-    private val Y_BASE = intArrayOf(55, 40, 30, 25, 15)
-    private const val X_REF = 8
-    private const val Y_REF = 182
-    private const val Y_PRECIO = 150
-    private const val OFFSET_PRECIO_HORIZONTAL = 35
-    private const val ANCHO_DIGITO = 64
-    private const val ANCHO_COMA = 38
+public class SedeApiClient {
+    private static final String BASE_URL = "https://citasprevimedicaidb.com:3276/api/Sucursal/ListarSedesCiudad/";
+    private OkHttpClient client;
+    private Gson gson;
 
-    fun generar(descripcion: String, precio: Double): String {
-        var lineas = wrapText(descripcion, MAX_CHARS_POR_LINEA)
-        if (lineas.size > 5) lineas = lineas.subList(0, 5)
-        val precioStr = String.format("%.2f", precio).replace('.', ',')
-        val partes = precioStr.split(",")
-        val entero = partes[0]
-        val decimal = partes[1]
-
-        val anchoEntero = entero.length * ANCHO_DIGITO
-        val anchoDecimal = 2 * ANCHO_DIGITO
-        val anchoTotalPrecio = anchoEntero + ANCHO_COMA + anchoDecimal
-        val xCentroTeorico = (ANCHO_TOTAL_DOTS - anchoTotalPrecio) / 2
-        val xEntero = xCentroTeorico + OFFSET_PRECIO_HORIZONTAL
-        val xComa = xEntero + anchoEntero
-        val xDecimal = xComa + ANCHO_COMA + 2
-
-        val sb = StringBuilder()
-        sb.append("SIZE 55 mm, 40 mm\\r\\nGAP 0 mm, 0 mm\\r\\nDIRECTION 0,0\\r\\nREFERENCE 0,0\\r\\nOFFSET 0 mm\\r\\nSET TEAR ON\\r\\nCLS\\r\\n")
-
-        val numLineas = lineas.size
-        val yBase = Y_BASE[numLineas - 1]
-        for (i in lineas.indices) {
-            val x = (ANCHO_TOTAL_DOTS - lineas[i].length * DOT_POR_CAR) / 2 + OFFSET_CENTRADO_HORIZONTAL
-            val y = yBase + i * STEP_Y
-            sb.append("TEXT $x,$y,\\"2\\",0,1,1,\\"${lineas[i]}\\"\\r\\n")
-        }
-
-        sb.append("TEXT $X_REF,$Y_REF,\\"4\\",0,1,1,\\"REF#\\"\\r\\n")
-        for (i in 0..2) {
-            val dx = if (i == 1) 1 else 0
-            val dy = if (i == 2) 1 else 0
-            sb.append("TEXT ${xEntero + dx},${Y_PRECIO + dy},\\"5\\",0,2,2,\\"$entero\\"\\r\\n")
-        }
-        for (i in 0..2) {
-            val dx = if (i == 1) 1 else 0
-            val dy = if (i == 2) 1 else 0
-            sb.append("TEXT ${xComa + dx},${Y_PRECIO + dy},\\"5\\",0,1.2,2,\\",\\"\\r\\n")
-        }
-        for (i in 0..2) {
-            val dx = if (i == 1) 1 else 0
-            val dy = if (i == 2) 1 else 0
-            sb.append("TEXT ${xDecimal + dx},${Y_PRECIO + dy},\\"5\\",0,2,2,\\"$decimal\\"\\r\\n")
-        }
-        sb.append("PRINT 1,1\\r\\n")
-        return sb.toString()
+    public SedeApiClient() {
+        this.client = new OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .build();
+        this.gson = new Gson();
     }
 
-    fun generarConCodigoBarras(desc: String, precio: Double, codigo: String): String {
-        return generar(desc, precio).replace("PRINT 1,1", "BARCODE 20,180,\\"128\\",80,1,0,2,4,\\"$codigo\\"\\r\\nPRINT 1,1")
+    public List<Sede> obtenerSedes() throws IOException {
+        Request request = new Request.Builder().url(BASE_URL).build();
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) throw new IOException("Error HTTP: " + response.code());
+            String json = response.body().string();
+            JsonArray jsonArray = gson.fromJson(json, JsonArray.class);
+            List<Sede> sedes = new ArrayList<>();
+            for (int i = 0; i < jsonArray.size(); i++) {
+                JsonObject obj = jsonArray.get(i).getAsJsonObject();
+                sedes.add(new Sede(obj.get("nombre").getAsString(), obj.get("ciudad").getAsString(),
+                        obj.get("id_sucursal_ext").getAsString().trim(), obj.get("servidorId").getAsInt()));
+            }
+            return sedes;
+        }
     }
 
-    private fun wrapText(text: String, maxChars: Int): List<String> {
-        val lines = mutableListOf<String>()
-        val words = text.trim().split("\\\\s+".toRegex())
-        val cur = StringBuilder()
-        for (w in words) {
-            if (cur.length + w.length + 1 <= maxChars) {
-                if (cur.isNotEmpty()) cur.append(" ")
-                cur.append(w)
+    public static class Sede {
+        public String nombre, ciudad, idSucursal;
+        public int servidorId;
+        public Sede(String nombre, String ciudad, String idSucursal, int servidorId) {
+            this.nombre = nombre; this.ciudad = ciudad; this.idSucursal = idSucursal; this.servidorId = servidorId;
+        }
+    }
+}
+""",
+        "BluetoothPrinterService.java": """
+package com.pharmatools.inventario;
+
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
+
+public class BluetoothPrinterService {
+    private static final String TAG = "BTPrinter";
+    private static final UUID UUID_SPP = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+    private Handler handler = new Handler(Looper.getMainLooper());
+
+    public interface Callback { void onSuccess(); void onError(String error); }
+
+    public void print(BluetoothDevice device, String command, Callback callback) {
+        new Thread(() -> {
+            try (BluetoothSocket socket = device.createRfcommSocketToServiceRecord(UUID_SPP)) {
+                BluetoothAdapter.getDefaultAdapter().cancelDiscovery();
+                socket.connect();
+                OutputStream out = socket.getOutputStream();
+                out.write((command.trim() + "\\r\\n").getBytes(StandardCharsets.UTF_8));
+                out.flush();
+                Thread.sleep(500);
+                handler.post(callback::onSuccess);
+            } catch (Exception e) {
+                handler.post(() -> callback.onError(e.getMessage()));
+            }
+        }).start();
+    }
+}
+""",
+        "TSPLGenerator.java": """
+package com.pharmatools.inventario;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class TSPLGenerator {
+    private static final int ANCHO_TOTAL_DOTS = 440;
+    private static final int MAX_CHARS_POR_LINEA = 32;
+    private static final int DOT_POR_CAR = 12;
+    private static final int OFFSET_CENTRADO_HORIZONTAL = -10;
+    private static final int STEP_Y = 25;
+    private static final int[] Y_BASE = {55, 40, 30, 25, 15};
+    private static final int X_REF = 8, Y_REF = 182, Y_PRECIO = 150;
+    private static final int OFFSET_PRECIO_HORIZONTAL = 35;
+    private static final int ANCHO_DIGITO = 64, ANCHO_COMA = 38;
+
+    public static String generar(String descripcion, double precio) {
+        List<String> lineas = wrapText(descripcion, MAX_CHARS_POR_LINEA);
+        if (lineas.size() > 5) lineas = lineas.subList(0, 5);
+        String precioStr = String.format("%.2f", precio).replace('.', ',');
+        String[] partes = precioStr.split(",");
+        String entero = partes[0], decimal = partes[1];
+
+        int anchoEntero = entero.length() * ANCHO_DIGITO;
+        int anchoDecimal = 2 * ANCHO_DIGITO;
+        int anchoTotalPrecio = anchoEntero + ANCHO_COMA + anchoDecimal;
+        int xCentroTeorico = (ANCHO_TOTAL_DOTS - anchoTotalPrecio) / 2;
+        int xEntero = xCentroTeorico + OFFSET_PRECIO_HORIZONTAL;
+        int xComa = xEntero + anchoEntero;
+        int xDecimal = xComa + ANCHO_COMA + 2;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("SIZE 55 mm, 40 mm\\r\\nGAP 0 mm, 0 mm\\r\\nDIRECTION 0,0\\r\\nREFERENCE 0,0\\r\\nOFFSET 0 mm\\r\\nSET TEAR ON\\r\\nCLS\\r\\n");
+
+        int numLineas = lineas.size();
+        int yBase = Y_BASE[numLineas - 1];
+        for (int i = 0; i < numLineas; i++) {
+            int x = (ANCHO_TOTAL_DOTS - lineas.get(i).length() * DOT_POR_CAR) / 2 + OFFSET_CENTRADO_HORIZONTAL;
+            int y = yBase + i * STEP_Y;
+            sb.append("TEXT ").append(x).append(",").append(y).append(",\\"2\\",0,1,1,\\"").append(lineas.get(i)).append("\\"\\r\\n");
+        }
+
+        sb.append("TEXT ").append(X_REF).append(",").append(Y_REF).append(",\\"4\\",0,1,1,\\"REF#\\"\\r\\n");
+        for (int i = 0; i < 3; i++) {
+            int dx = (i == 1) ? 1 : 0, dy = (i == 2) ? 1 : 0;
+            sb.append("TEXT ").append(xEntero+dx).append(",").append(Y_PRECIO+dy).append(",\\"5\\",0,2,2,\\"").append(entero).append("\\"\\r\\n");
+        }
+        for (int i = 0; i < 3; i++) {
+            int dx = (i == 1) ? 1 : 0, dy = (i == 2) ? 1 : 0;
+            sb.append("TEXT ").append(xComa+dx).append(",").append(Y_PRECIO+dy).append(",\\"5\\",0,1.2,2,\\",\\"\\r\\n");
+        }
+        for (int i = 0; i < 3; i++) {
+            int dx = (i == 1) ? 1 : 0, dy = (i == 2) ? 1 : 0;
+            sb.append("TEXT ").append(xDecimal+dx).append(",").append(Y_PRECIO+dy).append(",\\"5\\",0,2,2,\\"").append(decimal).append("\\"\\r\\n");
+        }
+        sb.append("PRINT 1,1\\r\\n");
+        return sb.toString();
+    }
+
+    public static String generarConCodigoBarras(String desc, double precio, String codigo) {
+        return generar(desc, precio).replace("PRINT 1,1", "BARCODE 20,180,\\"128\\",80,1,0,2,4,\\"" + codigo + "\\"\\r\\nPRINT 1,1");
+    }
+
+    private static List<String> wrapText(String text, int maxChars) {
+        List<String> lines = new ArrayList<>();
+        String[] words = text.trim().split("\\\\s+");
+        StringBuilder cur = new StringBuilder();
+        for (String w : words) {
+            if (cur.length() + w.length() + 1 <= maxChars) {
+                if (cur.length() > 0) cur.append(" ");
+                cur.append(w);
             } else {
-                lines.add(cur.toString())
-                cur.clear()
-                cur.append(w)
+                lines.add(cur.toString());
+                cur = new StringBuilder(w);
             }
         }
-        if (cur.isNotEmpty()) lines.add(cur.toString())
-        return lines
+        if (cur.length() > 0) lines.add(cur.toString());
+        return lines;
     }
 }
 """,
-        "MainActivity.kt": """
-package com.pharmatools.inventario
+        "MainActivity.java": """
+package com.pharmatools.inventario;
 
-import android.app.ProgressDialog
-import android.content.Intent
-import android.content.SharedPreferences
-import android.os.Bundle
-import android.widget.Button
-import android.widget.TextView
-import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.concurrent.Executors
+import android.app.ProgressDialog;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.appcompat.app.AppCompatActivity;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-class MainActivity : AppCompatActivity() {
-    private lateinit var dbHelper: DatabaseHelper
-    private val executor = Executors.newSingleThreadExecutor()
-    private lateinit var prefs: SharedPreferences
-    private lateinit var tvUltimaActualizacion: TextView
-    private lateinit var btnSincronizar: Button
-    private lateinit var btnControl: Button
-    private lateinit var btnDirecto: Button
-    private lateinit var btnConfig: Button
+public class MainActivity extends AppCompatActivity {
+    private DatabaseHelper dbHelper;
+    private ExecutorService executor = Executors.newSingleThreadExecutor();
+    private SharedPreferences prefs;
+    private TextView tvUltimaActualizacion;
+    private Button btnSincronizar, btnControl, btnDirecto, btnConfig;
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        dbHelper = DatabaseHelper(this)
-        prefs = getSharedPreferences("PharmatoolsPrefs", MODE_PRIVATE)
-        tvUltimaActualizacion = findViewById(R.id.tvUltimaActualizacion)
-        btnSincronizar = findViewById(R.id.btnSincronizar)
-        btnControl = findViewById(R.id.btnControlEtiquetado)
-        btnDirecto = findViewById(R.id.btnEtiquetado)
-        btnConfig = findViewById(R.id.btnConfiguracion)
-        btnSincronizar.setOnClickListener { sincronizarProductos(true) }
-        btnControl.setOnClickListener { startActivity(Intent(this, ControlEtiquetadoActivity::class.java)) }
-        btnDirecto.setOnClickListener { startActivity(Intent(this, EtiquetadoDirectoActivity::class.java)) }
-        btnConfig.setOnClickListener { startActivity(Intent(this, ConfiguracionActivity::class.java)) }
-        mostrarUltimaActualizacion()
-        if (dbHelper.getCantidadProductos() == 0) sincronizarProductos(true)
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        dbHelper = new DatabaseHelper(this);
+        prefs = getSharedPreferences("PharmatoolsPrefs", MODE_PRIVATE);
+        tvUltimaActualizacion = findViewById(R.id.tvUltimaActualizacion);
+        btnSincronizar = findViewById(R.id.btnSincronizar);
+        btnControl = findViewById(R.id.btnControlEtiquetado);
+        btnDirecto = findViewById(R.id.btnEtiquetado);
+        btnConfig = findViewById(R.id.btnConfiguracion);
+        btnSincronizar.setOnClickListener(v -> sincronizarProductos(true));
+        btnControl.setOnClickListener(v -> startActivity(new Intent(this, ControlEtiquetadoActivity.class)));
+        btnDirecto.setOnClickListener(v -> startActivity(new Intent(this, EtiquetadoDirectoActivity.class)));
+        btnConfig.setOnClickListener(v -> startActivity(new Intent(this, ConfiguracionActivity.class)));
+        mostrarUltimaActualizacion();
+        if (dbHelper.getCantidadProductos() == 0) sincronizarProductos(true);
         else {
-            val ultima = prefs.getLong("ultima_sincronizacion", 0)
-            if (System.currentTimeMillis() - ultima > 24 * 60 * 60 * 1000) sincronizarProductos(false)
+            long ultima = prefs.getLong("ultima_sincronizacion", 0);
+            if (System.currentTimeMillis() - ultima > 24 * 60 * 60 * 1000) sincronizarProductos(false);
         }
     }
 
-    private fun sincronizarProductos(mostrarDialogo: Boolean) {
-        var progress: ProgressDialog? = null
+    private void sincronizarProductos(boolean mostrarDialogo) {
+        ProgressDialog progress = null;
         if (mostrarDialogo) {
-            progress = ProgressDialog(this).apply {
-                setTitle("Sincronizando")
-                setMessage("Descargando catálogo...")
-                setProgressStyle(ProgressDialog.STYLE_SPINNER)
-                setCancelable(false)
-                show()
-            }
+            progress = new ProgressDialog(this);
+            progress.setTitle("Sincronizando");
+            progress.setMessage("Descargando catálogo...");
+            progress.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+            progress.setCancelable(false);
+            progress.show();
         }
-        val finalProgress = progress
-        executor.execute {
+        final ProgressDialog finalProgress = progress;
+        executor.execute(() -> {
             try {
-                val productos = ApiClient(this).obtenerTodosProductos()
-                dbHelper.sincronizarProductos(productos)
-                prefs.edit().putLong("ultima_sincronizacion", System.currentTimeMillis()).apply()
-                runOnUiThread {
-                    finalProgress?.dismiss()
-                    mostrarUltimaActualizacion()
-                    Toast.makeText(this, "✅ ${productos.size} productos sincronizados", Toast.LENGTH_LONG).show()
-                }
-            } catch (e: Exception) {
-                runOnUiThread {
-                    finalProgress?.dismiss()
-                    Toast.makeText(this, "❌ Error: ${e.message}", Toast.LENGTH_LONG).show()
-                }
+                List<Producto> productos = new ApiClient(this).obtenerTodosProductos();
+                dbHelper.sincronizarProductos(productos);
+                prefs.edit().putLong("ultima_sincronizacion", System.currentTimeMillis()).apply();
+                runOnUiThread(() -> {
+                    if (finalProgress != null) finalProgress.dismiss();
+                    mostrarUltimaActualizacion();
+                    Toast.makeText(MainActivity.this, "✅ " + productos.size() + " productos sincronizados", Toast.LENGTH_LONG).show();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    if (finalProgress != null) finalProgress.dismiss();
+                    Toast.makeText(MainActivity.this, "❌ Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
             }
-        }
+        });
     }
 
-    private fun mostrarUltimaActualizacion() {
-        val fecha = prefs.getLong("ultima_sincronizacion", 0)
-        tvUltimaActualizacion.text = if (fecha == 0L) "📅 Última actualización: Nunca"
-        else "📅 Última actualización: ${SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date(fecha))}"
+    private void mostrarUltimaActualizacion() {
+        long fecha = prefs.getLong("ultima_sincronizacion", 0);
+        tvUltimaActualizacion.setText(fecha == 0 ? "📅 Última actualización: Nunca" :
+                "📅 Última actualización: " + new SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(new Date(fecha)));
     }
 }
 """,
-        "ControlEtiquetadoActivity.kt": """
-package com.pharmatools.inventario
+        "ControlEtiquetadoActivity.java": """
+package com.pharmatools.inventario;
 
-import android.Manifest
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
-import android.content.SharedPreferences
-import android.content.pm.PackageManager
-import android.os.Build
-import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
-import android.widget.ArrayAdapter
-import android.widget.Button
-import android.widget.EditText
-import android.widget.ListView
-import android.widget.TextView
-import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
+import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ListView;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
-import com.google.android.gms.code_scanner.GmsBarcodeScanner
-import com.google.android.gms.tasks.Task
-import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.android.gms.code_scanner.GmsBarcodeScanner;
+import com.google.android.gms.code_scanner.GmsBarcodeScanning;
+import com.google.android.gms.code_scanner.GmsBarcodeScannerOptions;
+import com.google.android.gms.tasks.Task;
+import com.google.mlkit.vision.barcode.common.Barcode;
 
-class ControlEtiquetadoActivity : AppCompatActivity() {
-    private lateinit var dbHelper: DatabaseHelper
-    private lateinit var printerService: BluetoothPrinterService
-    private lateinit var scanner: GmsBarcodeScanner
-    private lateinit var tvDescripcion: TextView
-    private lateinit var tvPrecio: TextView
-    private lateinit var tvEstado: TextView
-    private lateinit var etBusqueda: EditText
-    private lateinit var lvResultados: ListView
-    private lateinit var btnOk: Button
-    private lateinit var btnImprimir: Button
-    private lateinit var btnVolver: Button
-    private lateinit var btnEscanear: Button
-    private lateinit var btnGenerarCodigo: Button
-    private var ultimoProducto: Producto? = null
-    private var productosEncontrados = mutableListOf<Producto>()
-    private lateinit var adapter: ArrayAdapter<String>
-    private lateinit var prefs: SharedPreferences
-    private var isScanning = false
+import java.util.ArrayList;
+import java.util.List;
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_control_etiquetado)
-        dbHelper = DatabaseHelper(this)
-        printerService = BluetoothPrinterService()
-        scanner = GmsBarcodeScanner.getInstance(this)
-        prefs = getSharedPreferences("PharmatoolsPrefs", MODE_PRIVATE)
+public class ControlEtiquetadoActivity extends AppCompatActivity {
+    private static final String PREFS_NAME = "PharmatoolsPrefs", KEY_MAC = "mac_impresora";
+    private static final int CAMERA_PERMISSION_CODE = 100;
+    private static final int BLUETOOTH_PERMISSION_CODE = 200;
 
-        tvDescripcion = findViewById(R.id.tvDescripcion)
-        tvPrecio = findViewById(R.id.tvPrecio)
-        tvEstado = findViewById(R.id.tvEstado)
-        etBusqueda = findViewById(R.id.etBusqueda)
-        lvResultados = findViewById(R.id.lvResultados)
-        btnOk = findViewById(R.id.btnOk)
-        btnImprimir = findViewById(R.id.btnImprimir)
-        btnVolver = findViewById(R.id.btnVolverControl)
-        btnEscanear = findViewById(R.id.btnEscanearControl)
-        btnGenerarCodigo = findViewById(R.id.btnGenerarCodigo)
+    private DatabaseHelper dbHelper;
+    private BluetoothPrinterService printerService;
+    private GmsBarcodeScanner scanner;
+    private TextView tvDescripcion, tvPrecio, tvEstado;
+    private EditText etBusqueda;
+    private ListView lvResultados;
+    private Button btnOk, btnImprimir, btnVolver, btnEscanear, btnGenerarCodigo;
+    private Producto ultimoProducto;
+    private List<Producto> productosEncontrados = new ArrayList<>();
+    private ArrayAdapter<String> adapter;
+    private SharedPreferences prefs;
+    private boolean isScanning = false;
 
-        adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
-        lvResultados.adapter = adapter
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_control_etiquetado);
+        dbHelper = new DatabaseHelper(this);
+        printerService = new BluetoothPrinterService();
+        
+        // Configurar el escáner de Google con opciones
+        GmsBarcodeScannerOptions options = new GmsBarcodeScannerOptions.Builder()
+                .setBarcodeFormats(
+                        Barcode.FORMAT_ALL_FORMATS
+                )
+                .build();
+        scanner = GmsBarcodeScanning.getClient(this, options);
+        
+        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
 
-        etBusqueda.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                buscarProductos(s.toString())
-            }
-            override fun afterTextChanged(s: Editable?) {}
-        })
+        tvDescripcion = findViewById(R.id.tvDescripcion);
+        tvPrecio = findViewById(R.id.tvPrecio);
+        tvEstado = findViewById(R.id.tvEstado);
+        etBusqueda = findViewById(R.id.etBusqueda);
+        lvResultados = findViewById(R.id.lvResultados);
+        btnOk = findViewById(R.id.btnOk);
+        btnImprimir = findViewById(R.id.btnImprimir);
+        btnVolver = findViewById(R.id.btnVolverControl);
+        btnEscanear = findViewById(R.id.btnEscanearControl);
+        btnGenerarCodigo = findViewById(R.id.btnGenerarCodigo);
 
-        lvResultados.setOnItemClickListener { _, _, position, _ ->
-            val p = productosEncontrados[position]
-            mostrarProducto(p)
-            lvResultados.visibility = android.view.View.GONE
-            etBusqueda.setText("")
-        }
+        adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, new ArrayList<>());
+        lvResultados.setAdapter(adapter);
 
-        btnEscanear.setOnClickListener { iniciarEscaneo() }
-        btnOk.setOnClickListener {
-            if (ultimoProducto != null) {
-                tvEstado.text = "Verificado. Escanea siguiente."
-                limpiarPantalla()
-            } else Toast.makeText(this, "No hay producto", Toast.LENGTH_SHORT).show()
-        }
-        btnImprimir.setOnClickListener {
-            ultimoProducto?.let { imprimirEtiqueta(it) } ?: Toast.makeText(this, "No hay producto", Toast.LENGTH_SHORT).show()
-        }
-        btnGenerarCodigo.setOnClickListener {
-            ultimoProducto?.let { generarCodigoBarras(it) } ?: Toast.makeText(this, "Selecciona un producto", Toast.LENGTH_SHORT).show()
-        }
-        btnVolver.setOnClickListener { finish() }
+        etBusqueda.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { buscarProductos(s.toString()); }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+
+        lvResultados.setOnItemClickListener((parent, view, position, id) -> {
+            Producto p = productosEncontrados.get(position);
+            mostrarProducto(p);
+            lvResultados.setVisibility(android.view.View.GONE);
+            etBusqueda.setText("");
+        });
+
+        btnEscanear.setOnClickListener(v -> iniciarEscaneo());
+        btnOk.setOnClickListener(v -> {
+            if (ultimoProducto != null) { tvEstado.setText("Verificado. Escanea siguiente."); limpiarPantalla(); }
+            else Toast.makeText(this, "No hay producto", Toast.LENGTH_SHORT).show();
+        });
+        btnImprimir.setOnClickListener(v -> {
+            if (ultimoProducto != null) imprimirEtiqueta(ultimoProducto);
+            else Toast.makeText(this, "No hay producto", Toast.LENGTH_SHORT).show();
+        });
+        btnGenerarCodigo.setOnClickListener(v -> {
+            if (ultimoProducto != null) generarCodigoBarras(ultimoProducto);
+            else Toast.makeText(this, "Selecciona un producto", Toast.LENGTH_SHORT).show();
+        });
+        btnVolver.setOnClickListener(v -> finish());
     }
 
-    private fun buscarProductos(query: String) {
-        if (query.length < 2) {
-            lvResultados.visibility = android.view.View.GONE
-            return
-        }
-        productosEncontrados = dbHelper.buscarProductos(query).toMutableList()
+    private void buscarProductos(String query) {
+        if (query.length() < 2) { lvResultados.setVisibility(android.view.View.GONE); return; }
+        productosEncontrados = dbHelper.buscarProductos(query);
         if (productosEncontrados.isEmpty()) {
-            adapter.clear()
-            adapter.add("No se encontraron productos")
-            lvResultados.visibility = android.view.View.VISIBLE
-            return
+            adapter.clear(); adapter.add("No se encontraron productos");
+            lvResultados.setVisibility(android.view.View.VISIBLE); return;
         }
-        val opciones = productosEncontrados.map { "${it.artDes} - ${it.ref}" }
-        adapter.clear()
-        adapter.addAll(opciones)
-        lvResultados.visibility = android.view.View.VISIBLE
+        List<String> opciones = new ArrayList<>();
+        for (Producto p : productosEncontrados) opciones.add(p.getArtDes() + " - " + p.getRef());
+        adapter.clear(); adapter.addAll(opciones);
+        lvResultados.setVisibility(android.view.View.VISIBLE);
     }
 
-    private fun mostrarProducto(p: Producto) {
-        ultimoProducto = p
-        tvDescripcion.text = "📦 ${p.artDes}"
-        tvPrecio.text = "💰 Precio: ${String.format("%.2f", p.precio).replace('.', ',')}"
-        tvEstado.text = "🔍 Verifica físicamente. ¿Está igual?"
-        btnOk.isEnabled = true
-        btnImprimir.isEnabled = true
-        btnGenerarCodigo.isEnabled = true
+    private void mostrarProducto(Producto p) {
+        ultimoProducto = p;
+        tvDescripcion.setText("📦 " + p.getArtDes());
+        tvPrecio.setText("💰 Precio: " + String.format("%.2f", p.getPrecio()).replace('.', ','));
+        tvEstado.setText("🔍 Verifica físicamente. ¿Está igual?");
+        btnOk.setEnabled(true); btnImprimir.setEnabled(true); btnGenerarCodigo.setEnabled(true);
     }
 
-    private fun iniciarEscaneo() {
-        if (isScanning) return
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_PERMISSION_CODE)
-            return
+    private void iniciarEscaneo() {
+        if (isScanning) return;
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_CODE);
+            return;
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT), BLUETOOTH_PERMISSION_CODE)
-                return
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN)
+                    != PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{
+                                Manifest.permission.BLUETOOTH_SCAN,
+                                Manifest.permission.BLUETOOTH_CONNECT
+                        }, BLUETOOTH_PERMISSION_CODE);
+                return;
             }
         }
-        isScanning = true
-        tvEstado.text = "📷 Escaneando..."
-        val task = scanner.startScan()
-        task.addOnSuccessListener { barcode ->
-            val codigo = barcode.rawValue
-            procesarCodigo(codigo)
-            isScanning = false
-        }.addOnFailureListener { e ->
-            Toast.makeText(this, "Error al escanear: ${e.message}", Toast.LENGTH_SHORT).show()
-            tvEstado.text = "❌ Error al escanear"
-            isScanning = false
-        }
+        isScanning = true;
+        tvEstado.setText("📷 Escaneando...");
+        Task<Barcode> task = scanner.startScan();
+        task.addOnSuccessListener(barcode -> {
+            String codigo = barcode.getRawValue();
+            procesarCodigo(codigo);
+            isScanning = false;
+        }).addOnFailureListener(e -> {
+            Toast.makeText(this, "Error al escanear: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            tvEstado.setText("❌ Error al escanear");
+            isScanning = false;
+        }).addOnCanceledListener(() -> {
+            tvEstado.setText("❌ Escaneo cancelado");
+            isScanning = false;
+        });
     }
 
-    private fun procesarCodigo(codigo: String) {
-        val p = dbHelper.buscarPorRef(codigo)
-        if (p == null) {
-            tvEstado.text = "❌ Producto no encontrado: $codigo"
-            limpiarPantalla()
-        } else mostrarProducto(p)
+    private void procesarCodigo(String codigo) {
+        Producto p = dbHelper.buscarPorRef(codigo);
+        if (p == null) { tvEstado.setText("❌ Producto no encontrado: " + codigo); limpiarPantalla(); }
+        else mostrarProducto(p);
     }
 
-    private fun imprimirEtiqueta(p: Producto) {
+    private void imprimirEtiqueta(Producto p) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_CONNECT), BLUETOOTH_PERMISSION_CODE)
-                return
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.BLUETOOTH_CONNECT}, BLUETOOTH_PERMISSION_CODE);
+                return;
             }
         }
-        val tspl = TSPLGenerator.generar(p.artDes, p.precio)
-        val mac = prefs.getString(KEY_MAC, "60:8A:10:19:48:B4") ?: "60:8A:10:19:48:B4"
+        String tspl = TSPLGenerator.generar(p.getArtDes(), p.getPrecio());
+        String mac = prefs.getString(KEY_MAC, "60:8A:10:19:48:B4");
         try {
-            val device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(mac)
-            tvEstado.text = "🖨️ Imprimiendo..."
-            printerService.print(device, tspl, object : BluetoothPrinterService.Callback {
-                override fun onSuccess() {
-                    runOnUiThread {
-                        Toast.makeText(this@ControlEtiquetadoActivity, "🏷️ Etiqueta impresa", Toast.LENGTH_SHORT).show()
-                        tvEstado.text = "✅ Etiqueta impresa. Escanea siguiente."
-                        limpiarPantalla()
-                    }
+            BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(mac);
+            tvEstado.setText("🖨️ Imprimiendo...");
+            printerService.print(device, tspl, new BluetoothPrinterService.Callback() {
+                @Override public void onSuccess() {
+                    runOnUiThread(() -> { 
+                        Toast.makeText(ControlEtiquetadoActivity.this, "🏷️ Etiqueta impresa", Toast.LENGTH_SHORT).show();
+                        tvEstado.setText("✅ Etiqueta impresa. Escanea siguiente."); 
+                        limpiarPantalla(); 
+                    });
                 }
-                override fun onError(error: String) {
-                    runOnUiThread {
-                        tvEstado.text = "❌ Error: $error"
-                        Toast.makeText(this@ControlEtiquetadoActivity, "Error: $error", Toast.LENGTH_SHORT).show()
-                    }
+                @Override public void onError(String error) { 
+                    runOnUiThread(() -> {
+                        tvEstado.setText("❌ Error: " + error);
+                        Toast.makeText(ControlEtiquetadoActivity.this, "Error: " + error, Toast.LENGTH_SHORT).show();
+                    });
                 }
-            })
-        } catch (e: Exception) {
-            tvEstado.text = "❌ Error Bluetooth: ${e.message}"
-            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            });
+        } catch (Exception e) {
+            tvEstado.setText("❌ Error Bluetooth: " + e.getMessage());
+            Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
-    private fun generarCodigoBarras(p: Producto) {
+    private void generarCodigoBarras(Producto p) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_CONNECT), BLUETOOTH_PERMISSION_CODE)
-                return
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.BLUETOOTH_CONNECT}, BLUETOOTH_PERMISSION_CODE);
+                return;
             }
         }
-        val tspl = TSPLGenerator.generarConCodigoBarras(p.artDes, p.precio, p.ref)
-        val mac = prefs.getString(KEY_MAC, "60:8A:10:19:48:B4") ?: "60:8A:10:19:48:B4"
+        String tspl = TSPLGenerator.generarConCodigoBarras(p.getArtDes(), p.getPrecio(), p.getRef());
+        String mac = prefs.getString(KEY_MAC, "60:8A:10:19:48:B4");
         try {
-            val device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(mac)
-            tvEstado.text = "🖨️ Generando código..."
-            printerService.print(device, tspl, object : BluetoothPrinterService.Callback {
-                override fun onSuccess() {
-                    runOnUiThread {
-                        Toast.makeText(this@ControlEtiquetadoActivity, "📦 Código de barras impreso", Toast.LENGTH_SHORT).show()
-                        tvEstado.text = "✅ Código impreso. Escanea siguiente."
-                        limpiarPantalla()
-                    }
+            BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(mac);
+            tvEstado.setText("🖨️ Generando código...");
+            printerService.print(device, tspl, new BluetoothPrinterService.Callback() {
+                @Override public void onSuccess() {
+                    runOnUiThread(() -> { 
+                        Toast.makeText(ControlEtiquetadoActivity.this, "📦 Código de barras impreso", Toast.LENGTH_SHORT).show();
+                        tvEstado.setText("✅ Código impreso. Escanea siguiente."); 
+                        limpiarPantalla(); 
+                    });
                 }
-                override fun onError(error: String) {
-                    runOnUiThread {
-                        tvEstado.text = "❌ Error: $error"
-                        Toast.makeText(this@ControlEtiquetadoActivity, "Error: $error", Toast.LENGTH_SHORT).show()
-                    }
+                @Override public void onError(String error) { 
+                    runOnUiThread(() -> {
+                        tvEstado.setText("❌ Error: " + error);
+                        Toast.makeText(ControlEtiquetadoActivity.this, "Error: " + error, Toast.LENGTH_SHORT).show();
+                    });
                 }
-            })
-        } catch (e: Exception) {
-            tvEstado.text = "❌ Error Bluetooth: ${e.message}"
-            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            });
+        } catch (Exception e) {
+            tvEstado.setText("❌ Error Bluetooth: " + e.getMessage());
+            Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
-    private fun limpiarPantalla() {
-        ultimoProducto = null
-        tvDescripcion.text = ""
-        tvPrecio.text = ""
-        btnOk.isEnabled = false
-        btnImprimir.isEnabled = false
-        btnGenerarCodigo.isEnabled = false
-        lvResultados.visibility = android.view.View.GONE
-        etBusqueda.setText("")
+    private void limpiarPantalla() {
+        ultimoProducto = null;
+        tvDescripcion.setText("");
+        tvPrecio.setText("");
+        btnOk.setEnabled(false); btnImprimir.setEnabled(false); btnGenerarCodigo.setEnabled(false);
+        lvResultados.setVisibility(android.view.View.GONE);
+        etBusqueda.setText("");
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        when (requestCode) {
-            CAMERA_PERMISSION_CODE -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) iniciarEscaneo()
-                else Toast.makeText(this, "Permiso de cámara necesario", Toast.LENGTH_SHORT).show()
-            }
-            BLUETOOTH_PERMISSION_CODE -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if (ultimoProducto != null) imprimirEtiqueta(ultimoProducto!!)
-                    else iniciarEscaneo()
-                } else Toast.makeText(this, "Permisos Bluetooth necesarios", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    companion object {
-        private const val PREFS_NAME = "PharmatoolsPrefs"
-        private const val KEY_MAC = "mac_impresora"
-        private const val CAMERA_PERMISSION_CODE = 100
-        private const val BLUETOOTH_PERMISSION_CODE = 200
-    }
-}
-""",
-        "EtiquetadoDirectoActivity.kt": """
-package com.pharmatools.inventario
-
-import android.Manifest
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
-import android.content.SharedPreferences
-import android.content.pm.PackageManager
-import android.os.Build
-import android.os.Bundle
-import android.os.Handler
-import android.widget.Button
-import android.widget.TextView
-import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-
-import com.google.android.gms.code_scanner.GmsBarcodeScanner
-import com.google.android.gms.tasks.Task
-import com.google.mlkit.vision.barcode.common.Barcode
-
-class EtiquetadoDirectoActivity : AppCompatActivity() {
-    private lateinit var dbHelper: DatabaseHelper
-    private lateinit var printerService: BluetoothPrinterService
-    private lateinit var scanner: GmsBarcodeScanner
-    private lateinit var tvEstado: TextView
-    private lateinit var btnVolver: Button
-    private lateinit var prefs: SharedPreferences
-    private var isScanning = false
-    private var isPrinting = false
-    private val handler = Handler()
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_etiquetado_directo)
-        dbHelper = DatabaseHelper(this)
-        printerService = BluetoothPrinterService()
-        scanner = GmsBarcodeScanner.getInstance(this)
-        prefs = getSharedPreferences("PharmatoolsPrefs", MODE_PRIVATE)
-        tvEstado = findViewById(R.id.tvEstadoDirecto)
-        btnVolver = findViewById(R.id.btnVolverDirecto)
-        btnVolver.setOnClickListener { finish() }
-        iniciarCicloEscaneo()
-    }
-
-    private fun iniciarCicloEscaneo() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_PERMISSION_CODE)
-            return
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT), BLUETOOTH_PERMISSION_CODE)
-                return
-            }
-        }
-        tvEstado.text = "📷 Escanea un código..."
-        if (isScanning) return
-        isScanning = true
-        val task = scanner.startScan()
-        task.addOnSuccessListener { barcode ->
-            isScanning = false
-            val codigo = barcode.rawValue
-            procesarCodigo(codigo)
-        }.addOnFailureListener { e ->
-            isScanning = false
-            tvEstado.text = "❌ Error al escanear: ${e.message}"
-            handler.postDelayed({ iniciarCicloEscaneo() }, 2000)
-        }
-    }
-
-    private fun procesarCodigo(codigo: String) {
-        val p = dbHelper.buscarPorRef(codigo)
-        if (p == null) {
-            tvEstado.text = "❌ Producto no encontrado: $codigo"
-            handler.postDelayed({ iniciarCicloEscaneo() }, 2000)
-            return
-        }
-        tvEstado.text = "🖨️ Imprimiendo: ${p.artDes}"
-        imprimirEtiqueta(p)
-    }
-
-    private fun imprimirEtiqueta(p: Producto) {
-        if (isPrinting) return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_CONNECT), BLUETOOTH_PERMISSION_CODE)
-                return
-            }
-        }
-        isPrinting = true
-        val tspl = TSPLGenerator.generar(p.artDes, p.precio)
-        val mac = prefs.getString(KEY_MAC, "60:8A:10:19:48:B4") ?: "60:8A:10:19:48:B4"
-        val adapter = BluetoothAdapter.getDefaultAdapter()
-        if (adapter == null || !adapter.isEnabled()) {
-            tvEstado.text = "❌ Bluetooth no disponible"
-            Toast.makeText(this, "Bluetooth no disponible", Toast.LENGTH_SHORT).show()
-            isPrinting = false
-            handler.postDelayed({ iniciarCicloEscaneo() }, 2000)
-            return
-        }
-        try {
-            val device = adapter.getRemoteDevice(mac)
-            printerService.print(device, tspl, object : BluetoothPrinterService.Callback {
-                override fun onSuccess() {
-                    runOnUiThread {
-                        Toast.makeText(this@EtiquetadoDirectoActivity, "🏷️ Etiqueta impresa", Toast.LENGTH_SHORT).show()
-                        isPrinting = false
-                        tvEstado.text = "✅ Etiqueta impresa. Escanea otro."
-                        handler.postDelayed({ iniciarCicloEscaneo() }, 1500)
-                    }
-                }
-                override fun onError(error: String) {
-                    runOnUiThread {
-                        tvEstado.text = "❌ Error: $error"
-                        Toast.makeText(this@EtiquetadoDirectoActivity, "Error al imprimir", Toast.LENGTH_SHORT).show()
-                        isPrinting = false
-                        handler.postDelayed({ iniciarCicloEscaneo() }, 2000)
-                    }
-                }
-            })
-        } catch (e: Exception) {
-            tvEstado.text = "❌ Error Bluetooth: ${e.message}"
-            isPrinting = false
-            handler.postDelayed({ iniciarCicloEscaneo() }, 2000)
-        }
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == CAMERA_PERMISSION_CODE || requestCode == BLUETOOTH_PERMISSION_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                iniciarCicloEscaneo()
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == CAMERA_PERMISSION_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                iniciarEscaneo();
             } else {
-                Toast.makeText(this, "Permisos necesarios", Toast.LENGTH_SHORT).show()
-                finish()
+                Toast.makeText(this, "Permiso de cámara necesario", Toast.LENGTH_SHORT).show();
+            }
+        } else if (requestCode == BLUETOOTH_PERMISSION_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (ultimoProducto != null) imprimirEtiqueta(ultimoProducto);
+                else iniciarEscaneo();
+            } else {
+                Toast.makeText(this, "Permisos Bluetooth necesarios", Toast.LENGTH_SHORT).show();
             }
         }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        handler.removeCallbacksAndMessages(null)
-    }
-
-    companion object {
-        private const val PREFS_NAME = "PharmatoolsPrefs"
-        private const val KEY_MAC = "mac_impresora"
-        private const val CAMERA_PERMISSION_CODE = 100
-        private const val BLUETOOTH_PERMISSION_CODE = 200
     }
 }
 """,
-        "ConfiguracionActivity.kt": """
-package com.pharmatools.inventario
+        "EtiquetadoDirectoActivity.java": """
+package com.pharmatools.inventario;
 
-import android.app.ProgressDialog
-import android.content.SharedPreferences
-import android.os.Bundle
-import android.widget.ArrayAdapter
-import android.widget.Button
-import android.widget.EditText
-import android.widget.Spinner
-import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
+import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.widget.Button;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
-class ConfiguracionActivity : AppCompatActivity() {
-    private lateinit var spinnerSede: Spinner
-    private lateinit var etMacImpresora: EditText
-    private lateinit var btnGuardar: Button
-    private lateinit var btnVolver: Button
-    private lateinit var prefs: SharedPreferences
-    private val sedes = mutableListOf<SedeApiClient.Sede>()
-    private lateinit var adapter: ArrayAdapter<String>
-    private var progressDialog: ProgressDialog? = null
+import com.google.android.gms.code_scanner.GmsBarcodeScanner;
+import com.google.android.gms.code_scanner.GmsBarcodeScanning;
+import com.google.android.gms.code_scanner.GmsBarcodeScannerOptions;
+import com.google.android.gms.tasks.Task;
+import com.google.mlkit.vision.barcode.common.Barcode;
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_configuracion)
-        prefs = getSharedPreferences("PharmatoolsPrefs", MODE_PRIVATE)
-        spinnerSede = findViewById(R.id.spinnerSede)
-        etMacImpresora = findViewById(R.id.etMacImpresora)
-        btnGuardar = findViewById(R.id.btnGuardarConfig)
-        btnVolver = findViewById(R.id.btnVolverConfig)
+public class EtiquetadoDirectoActivity extends AppCompatActivity {
+    private static final String PREFS_NAME = "PharmatoolsPrefs", KEY_MAC = "mac_impresora";
+    private static final int CAMERA_PERMISSION_CODE = 100;
+    private static final int BLUETOOTH_PERMISSION_CODE = 200;
 
-        adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, mutableListOf())
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerSede.adapter = adapter
+    private DatabaseHelper dbHelper;
+    private BluetoothPrinterService printerService;
+    private GmsBarcodeScanner scanner;
+    private TextView tvEstado;
+    private Button btnVolver;
+    private SharedPreferences prefs;
+    private boolean isScanning = false, isPrinting = false;
+    private Handler handler = new Handler();
 
-        btnGuardar.setOnClickListener { guardarConfiguracion() }
-        btnVolver.setOnClickListener { finish() }
-        cargarSedesRespaldo()
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_etiquetado_directo);
+        dbHelper = new DatabaseHelper(this);
+        printerService = new BluetoothPrinterService();
+        
+        // Configurar el escáner de Google con opciones
+        GmsBarcodeScannerOptions options = new GmsBarcodeScannerOptions.Builder()
+                .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
+                .build();
+        scanner = GmsBarcodeScanning.getClient(this, options);
+        
+        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        tvEstado = findViewById(R.id.tvEstadoDirecto);
+        btnVolver = findViewById(R.id.btnVolverDirecto);
+        btnVolver.setOnClickListener(v -> finish());
+        iniciarCicloEscaneo();
     }
 
-    private fun cargarSedesRespaldo() {
-        sedes.clear()
-        val hardcoded = arrayOf(
-            arrayOf("CATEDRAL","Barquisimeto","02","1"),
-            arrayOf("ESTE","Barquisimeto","03","1"),
-            arrayOf("OESTE","Barquisimeto","04","1"),
-            arrayOf("SAN BENITO (JEBE)","Barquisimeto","08","1"),
-            arrayOf("LA FUNDACION","Barquisimeto","PRIN","3"),
-            arrayOf("FARMACIA LA 21","Barquisimeto","09","1"),
-            arrayOf("FARMACIA CERRITOS BLANCOS","Barquisimeto","11","1"),
-            arrayOf("CLINIFARMA CABUDARE","Cabudare","01","1"),
-            arrayOf("CHUCHO BRICEÑO","Cabudare","06","1"),
-            arrayOf("LA MONTAÑITA","Cabudare","07","1"),
-            arrayOf("PLAZA SAN PEDRO","Valera","13","1"),
-            arrayOf("YARITAGUA","Yaritagua","PRIN","2")
-        )
-        for (s in hardcoded) {
-            sedes.add(SedeApiClient.Sede(s[0], s[1], s[2], s[3].toInt()))
+    private void iniciarCicloEscaneo() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_CODE);
+            return;
         }
-        cargarSedesEnSpinner()
-        cargarConfiguracionActual()
-        Toast.makeText(this, "Usando lista de sedes local", Toast.LENGTH_LONG).show()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN)
+                    != PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{
+                                Manifest.permission.BLUETOOTH_SCAN,
+                                Manifest.permission.BLUETOOTH_CONNECT
+                        }, BLUETOOTH_PERMISSION_CODE);
+                return;
+            }
+        }
+        tvEstado.setText("📷 Escanea un código...");
+        if (isScanning) return;
+        isScanning = true;
+        Task<Barcode> task = scanner.startScan();
+        task.addOnSuccessListener(barcode -> {
+            isScanning = false;
+            String codigo = barcode.getRawValue();
+            procesarCodigo(codigo);
+        }).addOnFailureListener(e -> {
+            isScanning = false;
+            tvEstado.setText("❌ Error al escanear: " + e.getMessage());
+            handler.postDelayed(this::iniciarCicloEscaneo, 2000);
+        }).addOnCanceledListener(() -> {
+            isScanning = false;
+            tvEstado.setText("❌ Escaneo cancelado");
+            handler.postDelayed(this::iniciarCicloEscaneo, 2000);
+        });
     }
 
-    private fun cargarSedesEnSpinner() {
-        val nombres = sedes.map { "${it.nombre} (${it.ciudad})" }
-        adapter.clear()
-        adapter.addAll(nombres)
-        adapter.notifyDataSetChanged()
+    private void procesarCodigo(String codigo) {
+        Producto p = dbHelper.buscarPorRef(codigo);
+        if (p == null) {
+            tvEstado.setText("❌ Producto no encontrado: " + codigo);
+            handler.postDelayed(this::iniciarCicloEscaneo, 2000);
+            return;
+        }
+        tvEstado.setText("🖨️ Imprimiendo: " + p.getArtDes());
+        imprimirEtiqueta(p);
     }
 
-    private fun cargarConfiguracionActual() {
-        val sedeActual = prefs.getString(KEY_SEDE, "CATEDRAL") ?: "CATEDRAL"
-        etMacImpresora.setText(prefs.getString(KEY_MAC, "60:8A:10:19:48:B4"))
-        for (i in sedes.indices) {
-            if (sedes[i].nombre == sedeActual) {
-                spinnerSede.setSelection(i)
-                break
+    private void imprimirEtiqueta(Producto p) {
+        if (isPrinting) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.BLUETOOTH_CONNECT}, BLUETOOTH_PERMISSION_CODE);
+                return;
+            }
+        }
+        isPrinting = true;
+        String tspl = TSPLGenerator.generar(p.getArtDes(), p.getPrecio());
+        String mac = prefs.getString(KEY_MAC, "60:8A:10:19:48:B4");
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        if (adapter == null || !adapter.isEnabled()) {
+            tvEstado.setText("❌ Bluetooth no disponible");
+            Toast.makeText(this, "Bluetooth no disponible", Toast.LENGTH_SHORT).show();
+            isPrinting = false;
+            handler.postDelayed(this::iniciarCicloEscaneo, 2000);
+            return;
+        }
+        try {
+            BluetoothDevice device = adapter.getRemoteDevice(mac);
+            printerService.print(device, tspl, new BluetoothPrinterService.Callback() {
+                @Override public void onSuccess() {
+                    runOnUiThread(() -> {
+                        Toast.makeText(EtiquetadoDirectoActivity.this, "🏷️ Etiqueta impresa", Toast.LENGTH_SHORT).show();
+                        isPrinting = false;
+                        tvEstado.setText("✅ Etiqueta impresa. Escanea otro.");
+                        handler.postDelayed(() -> iniciarCicloEscaneo(), 1500);
+                    });
+                }
+                @Override public void onError(String error) {
+                    runOnUiThread(() -> {
+                        tvEstado.setText("❌ Error: " + error);
+                        Toast.makeText(EtiquetadoDirectoActivity.this, "Error al imprimir", Toast.LENGTH_SHORT).show();
+                        isPrinting = false;
+                        handler.postDelayed(() -> iniciarCicloEscaneo(), 2000);
+                    });
+                }
+            });
+        } catch (Exception e) {
+            tvEstado.setText("❌ Error Bluetooth: " + e.getMessage());
+            isPrinting = false;
+            handler.postDelayed(this::iniciarCicloEscaneo, 2000);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == CAMERA_PERMISSION_CODE || requestCode == BLUETOOTH_PERMISSION_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                iniciarCicloEscaneo();
+            } else {
+                Toast.makeText(this, "Permisos necesarios", Toast.LENGTH_SHORT).show();
+                finish();
             }
         }
     }
 
-    private fun guardarConfiguracion() {
-        val pos = spinnerSede.selectedItemPosition
-        if (pos < 0) {
-            Toast.makeText(this, "Selecciona una sede", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val sede = sedes[pos]
-        val mac = etMacImpresora.text.toString().trim()
-        if (mac.isEmpty()) {
-            Toast.makeText(this, "Ingresa la MAC", Toast.LENGTH_SHORT).show()
-            return
-        }
-        if (!mac.matches("^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$".toRegex())) {
-            Toast.makeText(this, "MAC inválida. Ej: 60:8A:10:19:48:B4", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val servidorId = when {
-            sede.nombre == "YARITAGUA" -> 2
-            sede.nombre == "LA FUNDACION" -> 3
-            else -> 1
-        }
-        prefs.edit().apply {
-            putString(KEY_SEDE, sede.nombre)
-            putString(KEY_CO_ALMA, sede.idSucursal)
-            putInt(KEY_SERVIDOR_ID, servidorId)
-            putString(KEY_MAC, mac)
-        }.apply()
+    @Override protected void onDestroy() {
+        super.onDestroy();
+        handler.removeCallbacksAndMessages(null);
+    }
+}
+""",
+        "ConfiguracionActivity.java": """
+package com.pharmatools.inventario;
 
-        AlertDialog.Builder(this)
-            .setTitle("✅ Configuración guardada")
-            .setMessage("Sede: ${sede.nombre}\\nServidor ID: $servidorId\\nMAC: $mac\\n\\n📌 RECUERDA:\\n• La impresora debe estar EMPAREJADA por Bluetooth\\n• El PIN es: 0000")
-            .setPositiveButton("Entendido") { _, _ -> finish() }
-            .setCancelable(false)
-            .show()
+import android.app.ProgressDialog;
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Spinner;
+import android.widget.Toast;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import java.util.ArrayList;
+import java.util.List;
+
+public class ConfiguracionActivity extends AppCompatActivity {
+    private static final String PREFS_NAME = "PharmatoolsPrefs";
+    private static final String KEY_SEDE = "sede_actual", KEY_CO_ALMA = "co_alma";
+    private static final String KEY_SERVIDOR_ID = "servidor_id", KEY_MAC = "mac_impresora";
+    private Spinner spinnerSede;
+    private EditText etMacImpresora;
+    private Button btnGuardar, btnVolver;
+    private SharedPreferences prefs;
+    private List<SedeApiClient.Sede> sedes = new ArrayList<>();
+    private ArrayAdapter<String> adapter;
+    private ProgressDialog progressDialog;
+
+    @Override protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_configuracion);
+        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        spinnerSede = findViewById(R.id.spinnerSede);
+        etMacImpresora = findViewById(R.id.etMacImpresora);
+        btnGuardar = findViewById(R.id.btnGuardarConfig);
+        btnVolver = findViewById(R.id.btnVolverConfig);
+        adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, new ArrayList<>());
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerSede.setAdapter(adapter);
+        btnGuardar.setOnClickListener(v -> guardarConfiguracion());
+        btnVolver.setOnClickListener(v -> finish());
+        cargarSedesRespaldo();
     }
 
-    companion object {
-        private const val PREFS_NAME = "PharmatoolsPrefs"
-        private const val KEY_SEDE = "sede_actual"
-        private const val KEY_CO_ALMA = "co_alma"
-        private const val KEY_SERVIDOR_ID = "servidor_id"
-        private const val KEY_MAC = "mac_impresora"
+    private void cargarSedesRespaldo() {
+        sedes.clear();
+        String[][] hardcoded = {
+            {"CATEDRAL","Barquisimeto","02","1"},
+            {"ESTE","Barquisimeto","03","1"},
+            {"OESTE","Barquisimeto","04","1"},
+            {"SAN BENITO (JEBE)","Barquisimeto","08","1"},
+            {"LA FUNDACION","Barquisimeto","PRIN","3"},
+            {"FARMACIA LA 21","Barquisimeto","09","1"},
+            {"FARMACIA CERRITOS BLANCOS","Barquisimeto","11","1"},
+            {"CLINIFARMA CABUDARE","Cabudare","01","1"},
+            {"CHUCHO BRICEÑO","Cabudare","06","1"},
+            {"LA MONTAÑITA","Cabudare","07","1"},
+            {"PLAZA SAN PEDRO","Valera","13","1"},
+            {"YARITAGUA","Yaritagua","PRIN","2"}
+        };
+        for (String[] s : hardcoded) {
+            sedes.add(new SedeApiClient.Sede(s[0], s[1], s[2], Integer.parseInt(s[3])));
+        }
+        cargarSedesEnSpinner();
+        cargarConfiguracionActual();
+        Toast.makeText(this, "Usando lista de sedes local", Toast.LENGTH_LONG).show();
+    }
+
+    private void cargarSedesEnSpinner() {
+        List<String> nombres = new ArrayList<>();
+        for (SedeApiClient.Sede s : sedes) nombres.add(s.nombre + " (" + s.ciudad + ")");
+        adapter.clear(); adapter.addAll(nombres); adapter.notifyDataSetChanged();
+    }
+
+    private void cargarConfiguracionActual() {
+        String sedeActual = prefs.getString(KEY_SEDE, "CATEDRAL");
+        etMacImpresora.setText(prefs.getString(KEY_MAC, "60:8A:10:19:48:B4"));
+        for (int i = 0; i < sedes.size(); i++) {
+            if (sedes.get(i).nombre.equals(sedeActual)) { spinnerSede.setSelection(i); break; }
+        }
+    }
+
+    private void guardarConfiguracion() {
+        int pos = spinnerSede.getSelectedItemPosition();
+        if (pos < 0) { Toast.makeText(this, "Selecciona una sede", Toast.LENGTH_SHORT).show(); return; }
+        SedeApiClient.Sede sede = sedes.get(pos);
+        String mac = etMacImpresora.getText().toString().trim();
+        if (mac.isEmpty()) { Toast.makeText(this, "Ingresa la MAC", Toast.LENGTH_SHORT).show(); return; }
+        if (!mac.matches("^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")) {
+            Toast.makeText(this, "MAC inválida. Ej: 60:8A:10:19:48:B4", Toast.LENGTH_SHORT).show(); return;
+        }
+        int servidorId = sede.nombre.equals("YARITAGUA") ? 2 : sede.nombre.equals("LA FUNDACION") ? 3 : 1;
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString(KEY_SEDE, sede.nombre);
+        editor.putString(KEY_CO_ALMA, sede.idSucursal);
+        editor.putInt(KEY_SERVIDOR_ID, servidorId);
+        editor.putString(KEY_MAC, mac);
+        editor.apply();
+        new AlertDialog.Builder(this)
+            .setTitle("✅ Configuración guardada")
+            .setMessage("Sede: " + sede.nombre + "\\nServidor ID: " + servidorId + "\\nMAC: " + mac +
+                "\\n\\n📌 RECUERDA:\\n• La impresora debe estar EMPAREJADA por Bluetooth\\n• El PIN es: 0000")
+            .setPositiveButton("Entendido", (d,w) -> finish())
+            .setCancelable(false).show();
     }
 }
 """
     }
 
-    for fname, content in kotlin_files.items():
+    for fname, content in java_files.items():
         path = os.path.join(project_dir, "app/src/main/java", PACKAGE_PATH, fname)
         with open(path, "w") as f:
             f.write(content.strip())
@@ -1536,6 +1562,7 @@ fi
     print("  ✅ gradlew")
 
     print(f"\n✅ Proyecto creado exitosamente en: {project_dir}")
+    print(f"📦 Tamaño del proyecto: {sum(os.path.getsize(os.path.join(dirpath,filename)) for dirpath,dirnames,filenames in os.walk(project_dir) for filename in filenames) / 1024 / 1024:.2f} MB")
     return project_dir
 
 if __name__ == "__main__":
