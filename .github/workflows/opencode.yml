@@ -1,14 +1,19 @@
 name: opencode
 
 on:
+  workflow_dispatch:  # Permite ejecución manual desde Actions
   issue_comment:
     types: [created]
 
 jobs:
   opencode:
-    if: contains(github.event.comment.body, '/opencode')
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.comment.body, '/oc') ||
+      contains(github.event.comment.body, '/opencode')
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
       pull-requests: write
       issues: write
@@ -16,18 +21,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Install OmniRoute
+      - name: Install and run OmniRoute
         run: |
           npm install -g omniroute
           omniroute &
 
-      - name: Configure OpenCode
+      - name: Configure OpenCode for OmniRoute
         run: |
           omniroute config opencode \
             --baseUrl http://localhost:20128 \
