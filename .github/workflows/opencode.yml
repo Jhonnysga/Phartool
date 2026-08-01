@@ -25,11 +25,25 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install and run OmniRoute
+        run: |
+          npm install -g omniroute
+          omniroute &
+
+      - name: Configure OpenCode for OmniRoute
+        run: |
+          omniroute config opencode \
+            --baseUrl http://localhost:20128 \
+            --apiKey "sk_omniroute"
+
       - name: Run OpenCode
         uses: anomalyco/opencode/github@latest
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          model: anthropic/claude-sonnet-4-20250514
-          use_github_token: true
+          model: auto
