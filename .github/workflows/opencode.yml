@@ -1,7 +1,13 @@
 name: opencode
 
 on:
-  workflow_dispatch:  # Permite ejecución manual desde Actions
+  workflow_dispatch:
+    inputs:
+      instruccion:
+        description: 'Instrucción para OpenCode (ej: "Crea una función de login")'
+        required: true
+        type: string
+        default: 'Hola, responde con un saludo y confirma que estás funcionando.'
   issue_comment:
     types: [created]
 
@@ -13,37 +19,20 @@ jobs:
       contains(github.event.comment.body, '/opencode')
     runs-on: ubuntu-latest
     permissions:
-      actions: read
       contents: write
       pull-requests: write
       issues: write
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-          persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install and run OmniRoute
-        run: |
-          npm install -g omniroute
-          omniroute &
-
-      - name: Configure OpenCode for OmniRoute
-        run: |
-          omniroute config opencode \
-            --baseUrl http://localhost:20128 \
-            --apiKey "sk_omniroute"
-
-      - name: Run OpenCode
+      - name: Run OpenCode with OmniRoute
         uses: anomalyco/opencode/github@latest
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Usa PAT_TOKEN si existe (para comentarios), si no, usa GITHUB_TOKEN (automático)
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
         with:
           model: auto
+          # Si es manual, usa el input; si es por comentario, OpenCode usa el cuerpo del comentario
+          prompt: ${{ github.event.inputs.instruccion || '' }}
