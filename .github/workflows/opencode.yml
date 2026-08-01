@@ -7,7 +7,7 @@ on:
         description: '💬 Tu instrucción para OpenCode'
         required: true
         type: string
-        default: 'Continúa con el proyecto. Lee el contexto en .opencode/current_context.md'
+        default: 'Continúa con el proyecto'
 
 jobs:
   opencode:
@@ -19,46 +19,28 @@ jobs:
       issues: write
 
     steps:
-      - name: 📥 Checkout
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: 🟢 Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: 📦 Instalar OpenCode + OmniRoute
+      - name: Install OpenCode + OmniRoute
         run: npm install -g opencode-ai omniroute
 
-      - name: 🚀 Iniciar OmniRoute
+      - name: Start OmniRoute
         run: |
           omniroute &
           sleep 3
           omniroute config opencode --base-url http://localhost:20128
           echo "✅ OmniRoute corriendo"
 
-      - name: 🤖 Ejecutar OpenCode
+      - name: Run OpenCode
         uses: anomalyco/opencode/github@latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: auto
           prompt: ${{ github.event.inputs.instruccion }}
-
-      - name: 💾 Guardar contexto
-        run: |
-          mkdir -p .opencode/sessions
-          mkdir -p .opencode/prompts
-          echo "## $(date '+%Y-%m-%d %H:%M') - Sesión" >> .opencode/prompts/historial-completo.md
-          echo "${{ github.event.inputs.instruccion }}" >> .opencode/prompts/historial-completo.md
-          echo "" >> .opencode/prompts/historial-completo.md
-          git config user.name "OpenCode Bot"
-          git config user.email "opencode@local"
-          git add .opencode/ . || true
-          git commit -m "🧠 [OpenCode] Sesión $(date '+%Y-%m-%d %H:%M')" || echo "✅ Sin cambios"
-          git push || echo "⚠️ Error en push"
-
-      - name: ✅ Finalizado
-        run: echo "✅ Trabajo completado. Revisa los cambios en tu repositorio."
