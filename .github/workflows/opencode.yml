@@ -4,35 +4,99 @@ on:
   workflow_dispatch:
     inputs:
       instruccion:
-        description: 'Instrucción para OpenCode (ej: "Crea una función de login")'
+        description: '💬 Tu instrucción para OpenCode'
         required: true
         type: string
-        default: 'Hola, responde con un saludo y confirma que estás funcionando.'
-  issue_comment:
-    types: [created]
+        default: 'Continúa con el proyecto. Lee el contexto en .opencode/current_context.md'
 
 jobs:
   opencode:
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.comment.body, '/oc') ||
-      contains(github.event.comment.body, '/opencode')
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: write
       pull-requests: write
       issues: write
 
     steps:
-      - name: Checkout repository
+      - name: 📥 Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Run OpenCode with OmniRoute
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 📦 Instalar OpenCode + OmniRoute
+        run: npm install -g opencode-ai omniroute
+
+      - name: 🚀 Iniciar OmniRoute
+        run: |
+          omniroute &
+          sleep 3
+          omniroute config opencode --baseUrl http://localhost:20128 --apiKey "sk_omniroute"
+          echo "✅ OmniRoute corriendo"
+
+      - name: 📖 Cargar contexto
+        run: |
+          echo "📖 === CONTEXTO ACTUAL ==="
+          if [ -f ".opencode/current_context.md" ]; then
+            cat .opencode/current_context.md
+          else
+            echo "⚠️ No hay contexto previo."
+          fi
+
+      - name: 🤖 Ejecutar OpenCode
         uses: anomalyco/opencode/github@latest
         env:
-          # Usa PAT_TOKEN si existe (para comentarios), si no, usa GITHUB_TOKEN (automático)
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: auto
-          # Si es manual, usa el input; si es por comentario, OpenCode usa el cuerpo del comentario
-          prompt: ${{ github.event.inputs.instruccion || '' }}
+          prompt: |
+            === INSTRUCCIÓN ===
+            ${{ github.event.inputs.instruccion }}
+
+            === CONTEXTO ===
+            $(cat .opencode/current_context.md 2>/dev/null || echo "Sin contexto.")
+
+            === HISTORIAL ===
+            $(cat .opencode/prompts/historial-completo.md 2>/dev/null || echo "Sin historial.")
+
+            AL FINALIZAR:
+            1. Actualiza .opencode/current_context.md con el nuevo estado.
+            2. Añade la instrucción al historial.
+
+      - name: 💾 Guardar contexto
+        run: |
+          mkdir -p .opencode/sessions
+          mkdir -p .opencode/prompts
+
+          echo "## $(date '+%Y-%m-%d %H:%M') - Sesión" >> .opencode/prompts/historial-completo.md
+          echo "${{ github.event.inputs.instruccion }}" >> .opencode/prompts/historial-completo.md
+          echo "" >> .opencode/prompts/historial-completo.md
+
+          SESSION_FILE=".opencode/sessions/$(date '+%Y-%m-%d_%H-%M')_session.md"
+          echo "# Sesión del $(date '+%Y-%m-%d %H:%M')" > $SESSION_FILE
+          echo "" >> $SESSION_FILE
+          echo "## 📝 Instrucción" >> $SESSION_FILE
+          echo "${{ github.event.inputs.instruccion }}" >> $SESSION_FILE
+          echo "" >> $SESSION_FILE
+          echo "## 📂 Archivos modificados" >> $SESSION_FILE
+          git status --porcelain >> $SESSION_FILE 2>/dev/null || echo "Sin cambios"
+
+          git config user.name "OpenCode Bot"
+          git config user.email "opencode@local"
+          git add .opencode/ . || true
+          git commit -m "🧠 [OpenCode] Sesión $(date '+%Y-%m-%d %H:%M')" || echo "✅ Sin cambios nuevos"
+          git push || echo "⚠️ Error en push"
+
+      - name: ✅ Finalizado
+        run: |
+          echo ""
+          echo "============================================================"
+          echo "✅ TRABAJO COMPLETADO"
+          echo "📂 Revisa los cambios en tu repositorio"
+          echo "📱 La APK se compilará automáticamente si hay cambios en main"
+          echo "============================================================"
