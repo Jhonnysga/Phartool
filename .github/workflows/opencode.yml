@@ -36,17 +36,8 @@ jobs:
         run: |
           omniroute &
           sleep 3
-          omniroute config opencode --baseUrl http://localhost:20128 --apiKey "sk_omniroute"
+          omniroute config opencode --base-url http://localhost:20128
           echo "✅ OmniRoute corriendo"
-
-      - name: 📖 Cargar contexto
-        run: |
-          echo "📖 === CONTEXTO ACTUAL ==="
-          if [ -f ".opencode/current_context.md" ]; then
-            cat .opencode/current_context.md
-          else
-            echo "⚠️ No hay contexto previo."
-          fi
 
       - name: 🤖 Ejecutar OpenCode
         uses: anomalyco/opencode/github@latest
@@ -54,49 +45,20 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: auto
-          prompt: |
-            === INSTRUCCIÓN ===
-            ${{ github.event.inputs.instruccion }}
-
-            === CONTEXTO ===
-            $(cat .opencode/current_context.md 2>/dev/null || echo "Sin contexto.")
-
-            === HISTORIAL ===
-            $(cat .opencode/prompts/historial-completo.md 2>/dev/null || echo "Sin historial.")
-
-            AL FINALIZAR:
-            1. Actualiza .opencode/current_context.md con el nuevo estado.
-            2. Añade la instrucción al historial.
+          prompt: ${{ github.event.inputs.instruccion }}
 
       - name: 💾 Guardar contexto
         run: |
           mkdir -p .opencode/sessions
           mkdir -p .opencode/prompts
-
           echo "## $(date '+%Y-%m-%d %H:%M') - Sesión" >> .opencode/prompts/historial-completo.md
           echo "${{ github.event.inputs.instruccion }}" >> .opencode/prompts/historial-completo.md
           echo "" >> .opencode/prompts/historial-completo.md
-
-          SESSION_FILE=".opencode/sessions/$(date '+%Y-%m-%d_%H-%M')_session.md"
-          echo "# Sesión del $(date '+%Y-%m-%d %H:%M')" > $SESSION_FILE
-          echo "" >> $SESSION_FILE
-          echo "## 📝 Instrucción" >> $SESSION_FILE
-          echo "${{ github.event.inputs.instruccion }}" >> $SESSION_FILE
-          echo "" >> $SESSION_FILE
-          echo "## 📂 Archivos modificados" >> $SESSION_FILE
-          git status --porcelain >> $SESSION_FILE 2>/dev/null || echo "Sin cambios"
-
           git config user.name "OpenCode Bot"
           git config user.email "opencode@local"
           git add .opencode/ . || true
-          git commit -m "🧠 [OpenCode] Sesión $(date '+%Y-%m-%d %H:%M')" || echo "✅ Sin cambios nuevos"
+          git commit -m "🧠 [OpenCode] Sesión $(date '+%Y-%m-%d %H:%M')" || echo "✅ Sin cambios"
           git push || echo "⚠️ Error en push"
 
       - name: ✅ Finalizado
-        run: |
-          echo ""
-          echo "============================================================"
-          echo "✅ TRABAJO COMPLETADO"
-          echo "📂 Revisa los cambios en tu repositorio"
-          echo "📱 La APK se compilará automáticamente si hay cambios en main"
-          echo "============================================================"
+        run: echo "✅ Trabajo completado. Revisa los cambios en tu repositorio."
