@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
-      id-token: write  # ✅ AGREGADO: Necesario para OIDC
+      id-token: write
       contents: write
       pull-requests: write
       issues: write
@@ -45,7 +45,7 @@ jobs:
           echo "✅ OpenCode y OmniRoute instalados"
 
       # ============================================================
-      # PASO 4: Iniciar OmniRoute
+      # PASO 4: Iniciar OmniRoute (UNA SOLA VEZ)
       # ============================================================
       - name: 🚀 Start OmniRoute
         run: |
@@ -55,32 +55,22 @@ jobs:
           echo "✅ OmniRoute iniciado en http://localhost:20128"
 
       # ============================================================
-      # PASO 5: Configurar OpenCode MANUALMENTE
+      # PASO 5: Configurar OpenCode usando el comando oficial (SIN iniciar OmniRoute)
       # ============================================================
-      - name: 🔧 Configure OpenCode manually
+      - name: 🔧 Configure OpenCode
         run: |
-          echo "⏳ Creando configuración manual de OpenCode..."
+          echo "⏳ Configurando OpenCode para usar OmniRoute..."
           
-          mkdir -p ~/.config/opencode
+          # Usar el comando oficial de OpenCode para configurar el proveedor
+          # Esto NO inicia OmniRoute, solo modifica la configuración
+          opencode config set provider omniroute \
+            --base-url http://localhost:20128/v1 \
+            --api-key sk_omniroute
           
-          cat > ~/.config/opencode/opencode.json << 'EOF'
-          {
-            "$schema": "https://opencode.ai/config.json",
-            "provider": {
-              "omniroute": {
-                "name": "OmniRoute",
-                "npm": "@ai-sdk/openai-compatible",
-                "options": {
-                  "baseURL": "http://localhost:20128/v1",
-                  "apiKey": "sk_omniroute"
-                }
-              }
-            }
-          }
-          EOF
-          
-          echo "✅ Configuración de OpenCode creada"
-          cat ~/.config/opencode/opencode.json
+          echo "✅ OpenCode configurado correctamente"
+          echo ""
+          echo "📄 Configuración actual:"
+          cat ~/.config/opencode/opencode.json 2>/dev/null || echo "No se encontró el archivo"
 
       # ============================================================
       # PASO 6: Cargar contexto actual
