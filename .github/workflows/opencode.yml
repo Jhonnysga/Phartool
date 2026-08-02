@@ -54,18 +54,44 @@ jobs:
           echo "✅ OmniRoute iniciado en http://localhost:20128"
 
       # ============================================================
-      # PASO 5: Configurar OpenCode (SIN iniciar OmniRoute)
+      # PASO 5: CONFIGURAR OPENCODE MANUALMENTE (SIN OMNIROUTE)
       # ============================================================
-      - name: 🔧 Configure OpenCode for OmniRoute
+      - name: 🔧 Configure OpenCode manually
         run: |
-          echo "⏳ Configurando OpenCode para usar OmniRoute..."
-          # Usar npx y --non-interactive para evitar iniciar el servidor
-          npx omniroute config opencode \
-            --base-url http://localhost:20128 \
-            --api-key "sk_omniroute" \
-            --non-interactive \
-            --yes
-          echo "✅ OpenCode configurado correctamente"
+          echo "⏳ Creando configuración manual de OpenCode..."
+          
+          # Crear la carpeta de configuración
+          mkdir -p ~/.config/opencode
+          
+          # Crear el archivo de configuración manualmente
+          cat > ~/.config/opencode/opencode.json << 'EOF'
+          {
+            "$schema": "https://opencode.ai/config.json",
+            "provider": {
+              "omniroute": {
+                "name": "OmniRoute",
+                "npm": "@ai-sdk/openai-compatible",
+                "options": {
+                  "baseURL": "http://localhost:20128/v1",
+                  "apiKey": "sk_omniroute"
+                },
+                "models": {
+                  "auto": {
+                    "name": "auto",
+                    "limit": {
+                      "context": 1048576,
+                      "output": 384000,
+                      "input": 1048576
+                    }
+                  }
+                }
+              }
+            }
+          }
+          EOF
+          
+          echo "✅ Configuración de OpenCode creada manualmente"
+          cat ~/.config/opencode/opencode.json
 
       # ============================================================
       # PASO 6: Cargar contexto actual
