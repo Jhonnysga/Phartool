@@ -55,29 +55,31 @@ jobs:
           echo "✅ OmniRoute iniciado en http://localhost:20128"
 
       # ============================================================
-      # PASO 5: Configurar OpenCode MANUALMENTE (archivo JSON)
+      # PASO 5: Configurar OpenCode (archivo JSON correcto)
       # ============================================================
-      - name: 🔧 Configure OpenCode manually
+      - name: 🔧 Configure OpenCode
         run: |
-          echo "⏳ Creando configuración manual de OpenCode..."
+          echo "⏳ Creando configuración de OpenCode..."
           
-          # Crear la carpeta de configuración
           mkdir -p ~/.config/opencode
           
-          # Crear el archivo de configuración con el formato correcto
           cat > ~/.config/opencode/opencode.json << 'EOF'
           {
-            "providers": {
+            "$schema": "https://opencode.ai/config.json",
+            "provider": {
               "omniroute": {
                 "name": "OmniRoute",
-                "url": "http://localhost:20128/v1",
-                "apiKey": "sk_omniroute"
+                "npm": "@ai-sdk/openai-compatible",
+                "options": {
+                  "baseURL": "http://localhost:20128/v1",
+                  "apiKey": "sk_omniroute"
+                }
               }
             }
           }
           EOF
           
-          echo "✅ Configuración de OpenCode creada"
+          echo "✅ Configuración creada correctamente"
           echo ""
           echo "📄 Contenido del archivo:"
           cat ~/.config/opencode/opencode.json
