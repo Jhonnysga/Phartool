@@ -45,7 +45,7 @@ jobs:
           echo "✅ OpenCode y OmniRoute instalados"
 
       # ============================================================
-      # PASO 4: Iniciar OmniRoute (UNA SOLA VEZ)
+      # PASO 4: Iniciar OmniRoute
       # ============================================================
       - name: 🚀 Start OmniRoute
         run: |
@@ -55,22 +55,23 @@ jobs:
           echo "✅ OmniRoute iniciado en http://localhost:20128"
 
       # ============================================================
-      # PASO 5: Configurar OpenCode usando el comando oficial (SIN iniciar OmniRoute)
+      # PASO 5: Configurar OpenCode (usando providers add)
       # ============================================================
       - name: 🔧 Configure OpenCode
         run: |
           echo "⏳ Configurando OpenCode para usar OmniRoute..."
           
-          # Usar el comando oficial de OpenCode para configurar el proveedor
-          # Esto NO inicia OmniRoute, solo modifica la configuración
-          opencode config set provider omniroute \
+          # Agregar OmniRoute como proveedor
+          opencode providers add omniroute \
             --base-url http://localhost:20128/v1 \
             --api-key sk_omniroute
           
           echo "✅ OpenCode configurado correctamente"
+          
+          # Verificar configuración
           echo ""
-          echo "📄 Configuración actual:"
-          cat ~/.config/opencode/opencode.json 2>/dev/null || echo "No se encontró el archivo"
+          echo "📄 Proveedores configurados:"
+          opencode providers list
 
       # ============================================================
       # PASO 6: Cargar contexto actual
