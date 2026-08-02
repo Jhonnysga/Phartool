@@ -55,44 +55,7 @@ jobs:
           echo "✅ OmniRoute iniciado en http://localhost:20128"
 
       # ============================================================
-      # PASO 5: Configurar OpenCode MANUALMENTE (SIN OMNIROUTE)
-      # ============================================================
-      - name: 🔧 Configure OpenCode for OmniRoute
-        run: |
-          echo "⏳ Creando configuración manual de OpenCode..."
-          
-          # Crear la carpeta de configuración
-          mkdir -p ~/.config/opencode
-          
-          # Crear el archivo de configuración con el formato CORRECTO
-          cat > ~/.config/opencode/opencode.json << 'EOF'
-          {
-            "$schema": "https://opencode.ai/config.json",
-            "provider": {
-              "omniroute": {
-                "npm": "@ai-sdk/openai-compatible",
-                "name": "OmniRoute",
-                "options": {
-                  "baseURL": "http://localhost:20128/v1",
-                  "apiKey": "sk_omniroute"
-                },
-                "models": {
-                  "auto": {
-                    "name": "auto"
-                  }
-                }
-              }
-            }
-          }
-          EOF
-          
-          echo "✅ Configuración creada correctamente"
-          echo ""
-          echo "📄 Contenido del archivo:"
-          cat ~/.config/opencode/opencode.json
-
-      # ============================================================
-      # PASO 6: Cargar contexto actual
+      # PASO 5: Cargar contexto actual
       # ============================================================
       - name: 📖 Load current context
         run: |
@@ -128,14 +91,17 @@ jobs:
           echo ""
 
       # ============================================================
-      # PASO 7: Ejecutar OpenCode con contexto
+      # PASO 6: Ejecutar OpenCode con contexto (usando variables de entorno)
       # ============================================================
       - name: 🤖 Run OpenCode with context
         uses: anomalyco/opencode/github@latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Configurar OpenCode para usar la API de OpenAI (apuntando a OmniRoute)
+          OPENAI_API_BASE: http://localhost:20128/v1
+          OPENAI_API_KEY: sk_omniroute
         with:
-          model: omniroute/auto
+          model: openai/gpt-4  # OmniRoute redirigirá a su mejor modelo gratuito
           prompt: |
             INSTRUCCIÓN DEL USUARIO:
             ${{ github.event.inputs.instruccion }}
@@ -151,7 +117,7 @@ jobs:
             2. AÑADE esta instrucción al historial en .opencode/prompts/historial-completo.md.
 
       # ============================================================
-      # PASO 8: Guardar estado y contexto
+      # PASO 7: Guardar estado y contexto
       # ============================================================
       - name: 💾 Save session state
         run: |
@@ -205,7 +171,7 @@ jobs:
           echo "============================================================"
 
       # ============================================================
-      # PASO 9: Finalizar
+      # PASO 8: Finalizar
       # ============================================================
       - name: ✅ Workflow completed
         run: |
