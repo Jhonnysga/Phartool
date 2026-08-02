@@ -7,13 +7,14 @@ on:
         description: '💬 Instrucción para OpenCode'
         required: true
         type: string
-        default: 'Continúa con el proyecto. Lee el contexto en .opencode/current_context.md'
+        default: 'Continúa con el proyecto'
 
 jobs:
   opencode:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
+      id-token: write
       contents: write
       pull-requests: write
       issues: write
@@ -42,37 +43,38 @@ jobs:
         run: |
           npm install -g opencode-ai omniroute
           echo "✅ OpenCode y OmniRoute instalados"
-          node --version
-          npm list -g --depth=0
 
       # ============================================================
-      # PASO 4: Iniciar OmniRoute y configurar OpenCode
+      # PASO 4: Iniciar OmniRoute
       # ============================================================
-      - name: 🚀 Start OmniRoute and configure OpenCode
+      - name: 🚀 Start OmniRoute
         run: |
-          # Iniciar OmniRoute en segundo plano
+          echo "⏳ Iniciando OmniRoute..."
           omniroute &
-          
-          # Esperar a que OmniRoute esté listo
-          echo "⏳ Esperando a que OmniRoute esté listo..."
           sleep 10
-          
-          # Verificar que OmniRoute está corriendo
-          if curl -s http://localhost:20128 > /dev/null; then
-            echo "✅ OmniRoute está corriendo"
-          else
-            echo "⚠️ OmniRoute no responde, pero continuamos..."
-          fi
-          
-          # Configurar OpenCode para usar OmniRoute
-          omniroute config opencode \
-            --base-url http://localhost:20128 \
-            --api-key "sk_omniroute"
-          
-          echo "✅ OmniRoute configurado correctamente"
+          echo "✅ OmniRoute iniciado en http://localhost:20128"
 
       # ============================================================
-      # PASO 5: Cargar contexto actual
+      # PASO 5: Configurar OpenCode usando el comando correcto
+      # ============================================================
+      - name: 🔧 Configure OpenCode
+        run: |
+          echo "⏳ Configurando OpenCode para usar OmniRoute..."
+          
+          # Agregar OmniRoute como proveedor
+          opencode providers add omniroute \
+            --base-url http://localhost:20128/v1 \
+            --api-key sk_omniroute
+          
+          echo "✅ OpenCode configurado correctamente"
+          
+          # Verificar configuración
+          echo ""
+          echo "📄 Proveedores configurados:"
+          opencode providers list
+
+      # ============================================================
+      # PASO 6: Cargar contexto actual
       # ============================================================
       - name: 📖 Load current context
         run: |
@@ -80,12 +82,10 @@ jobs:
           echo "📖 CONTEXTO ACTUAL DEL PROYECTO"
           echo "============================================================"
           
-          # Crear estructura de contexto si no existe
           mkdir -p .opencode/prompts
           mkdir -p .opencode/sessions
           
           if [ ! -f ".opencode/current_context.md" ]; then
-            echo "⚠️ No hay contexto previo. Creando estructura inicial..."
             cat > .opencode/current_context.md << 'EOF'
           # Estado actual del proyecto
 
@@ -102,48 +102,38 @@ jobs:
           - Usar Material Design.
           - Base de datos SQLite local.
           EOF
+            echo "✅ Contexto inicial creado"
           fi
           
           echo ""
           cat .opencode/current_context.md
           echo ""
-          echo "============================================================"
 
       # ============================================================
-      # PASO 6: Ejecutar OpenCode con contexto
+      # PASO 7: Ejecutar OpenCode con contexto
       # ============================================================
       - name: 🤖 Run OpenCode with context
         uses: anomalyco/opencode/github@latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          model: auto
+          model: omniroute/auto/best-coding
           prompt: |
-            ============================================================
-            INSTRUCCIÓN DEL USUARIO
-            ============================================================
+            INSTRUCCIÓN DEL USUARIO:
             ${{ github.event.inputs.instruccion }}
 
-            ============================================================
-            CONTEXTO ACTUAL DEL PROYECTO
-            ============================================================
+            CONTEXTO ACTUAL DEL PROYECTO:
             $(cat .opencode/current_context.md 2>/dev/null || echo "Sin contexto previo.")
 
-            ============================================================
-            HISTORIAL DE INSTRUCCIONES
-            ============================================================
+            HISTORIAL DE INSTRUCCIONES:
             $(cat .opencode/prompts/historial-completo.md 2>/dev/null || echo "Sin historial previo.")
 
-            ============================================================
-            TAREAS OBLIGATORIAS AL FINALIZAR
-            ============================================================
-            1. ACTUALIZA .opencode/current_context.md con el NUEVO estado del proyecto.
+            TAREAS OBLIGATORIAS AL FINALIZAR:
+            1. ACTUALIZA .opencode/current_context.md con el nuevo estado del proyecto.
             2. AÑADE esta instrucción al historial en .opencode/prompts/historial-completo.md.
-            3. Si creaste o modificaste archivos, asegúrate de que queden guardados.
-            4. Actualiza el estado del proyecto si es necesario.
 
       # ============================================================
-      # PASO 7: Guardar estado y contexto
+      # PASO 8: Guardar estado y contexto
       # ============================================================
       - name: 💾 Save session state
         run: |
@@ -164,17 +154,11 @@ jobs:
           ## 📝 Instrucción recibida
           ${{ github.event.inputs.instruccion }}
 
-          ## 📂 Archivos modificados en esta sesión
+          ## 📂 Archivos modificados
           $(git status --porcelain 2>/dev/null || echo "Sin cambios")
 
-          ## 📊 Estadísticas
-          - Fecha: $(date '+%Y-%m-%d %H:%M:%S')
-          - Repositorio: ${{ github.repository }}
-          - Rama: ${{ github.ref_name }}
-          - Ejecución: ${{ github.run_id }}
-
-          ## ✅ Estado final del proyecto
-          $(cat .opencode/current_context.md 2>/dev/null || echo "Contexto no disponible")
+          ## ✅ Estado final
+          Fecha: $(date '+%Y-%m-%d %H:%M:%S')
           EOF
 
           # Configurar usuario de git
@@ -198,13 +182,12 @@ jobs:
           echo "📋 RESUMEN DE LA SESIÓN"
           echo "============================================================"
           echo "📂 Sesión guardada en: $SESSION_FILE"
-          echo "📝 Historial actualizado: .opencode/prompts/historial-completo.md"
-          echo "📖 Contexto actual: .opencode/current_context.md"
-          echo "✅ Estado guardado correctamente"
+          echo "📝 Historial: .opencode/prompts/historial-completo.md"
+          echo "📖 Contexto: .opencode/current_context.md"
           echo "============================================================"
 
       # ============================================================
-      # PASO 8: Finalizar y mostrar resumen
+      # PASO 9: Finalizar
       # ============================================================
       - name: ✅ Workflow completed
         run: |
@@ -216,19 +199,9 @@ jobs:
           echo "   https://github.com/${{ github.repository }}"
           echo ""
           echo "📱 La APK se compilará AUTOMÁTICAMENTE si hay cambios en 'main'"
-          echo "   (gracias al workflow de build que ya tienes)"
-          echo ""
-          echo "📊 ESTADÍSTICAS DE LA SESIÓN"
-          echo "   - Fecha: $(date '+%Y-%m-%d %H:%M:%S')"
-          echo "   - Repositorio: ${{ github.repository }}"
-          echo "   - Rama: ${{ github.ref_name }}"
-          echo "   - Ejecución: ${{ github.run_id }}"
           echo ""
           echo "📖 Para continuar en la próxima sesión:"
           echo "   1. Ejecuta este workflow nuevamente"
           echo "   2. Escribe tu nueva instrucción"
-          echo "   3. OpenCode leerá el contexto guardado y continuará"
-          echo ""
-          echo "🛑 Puedes cancelar este workflow en cualquier momento"
-          echo "   (los cambios ya están guardados en el repositorio)"
+          echo "   3. OpenCode leerá el contexto guardado"
           echo "============================================================"
