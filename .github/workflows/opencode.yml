@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       instruccion:
-        description: '💬 Instrucción para OpenCode (ej: "Crea la pantalla de login")'
+        description: '💬 Instrucción para OpenCode'
         required: true
         type: string
         default: 'Continúa con el proyecto. Lee el contexto en .opencode/current_context.md'
@@ -20,7 +20,7 @@ jobs:
 
     steps:
       # ============================================================
-      # PASO 1: Clonar el repositorio
+      # PASO 1: Clonar repositorio
       # ============================================================
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
@@ -28,7 +28,7 @@ jobs:
           fetch-depth: 0
 
       # ============================================================
-      # PASO 2: Instalar Node.js (versión 20 LTS)
+      # PASO 2: Instalar Node.js 20 LTS
       # ============================================================
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
@@ -44,23 +44,31 @@ jobs:
           echo "✅ OpenCode y OmniRoute instalados"
 
       # ============================================================
-      # PASO 4: Iniciar OmniRoute y configurar OpenCode
+      # PASO 4: Iniciar OmniRoute (UNA SOLA VEZ)
       # ============================================================
-      - name: 🚀 Start OmniRoute and configure OpenCode
+      - name: 🚀 Start OmniRoute
         run: |
-          # Iniciar OmniRoute en segundo plano
+          echo "⏳ Iniciando OmniRoute..."
           omniroute &
-          sleep 5
-
-          # Configurar OpenCode para usar OmniRoute
-          omniroute config opencode \
-            --base-url http://localhost:20128 \
-            --api-key "sk_omniroute"
-
-          echo "✅ OmniRoute configurado correctamente"
+          sleep 10
+          echo "✅ OmniRoute iniciado en http://localhost:20128"
 
       # ============================================================
-      # PASO 5: Cargar y mostrar el contexto actual
+      # PASO 5: Configurar OpenCode (SIN iniciar OmniRoute)
+      # ============================================================
+      - name: 🔧 Configure OpenCode for OmniRoute
+        run: |
+          echo "⏳ Configurando OpenCode para usar OmniRoute..."
+          # Usar npx y --non-interactive para evitar iniciar el servidor
+          npx omniroute config opencode \
+            --base-url http://localhost:20128 \
+            --api-key "sk_omniroute" \
+            --non-interactive \
+            --yes
+          echo "✅ OpenCode configurado correctamente"
+
+      # ============================================================
+      # PASO 6: Cargar contexto actual
       # ============================================================
       - name: 📖 Load current context
         run: |
@@ -68,12 +76,10 @@ jobs:
           echo "📖 CONTEXTO ACTUAL DEL PROYECTO"
           echo "============================================================"
           
-          # Crear estructura de contexto si no existe
           mkdir -p .opencode/prompts
           mkdir -p .opencode/sessions
           
           if [ ! -f ".opencode/current_context.md" ]; then
-            echo "⚠️ No hay contexto previo. Creando estructura inicial..."
             cat > .opencode/current_context.md << 'EOF'
           # Estado actual del proyecto
 
@@ -90,6 +96,7 @@ jobs:
           - Usar Material Design.
           - Base de datos SQLite local.
           EOF
+            echo "✅ Contexto inicial creado"
           fi
           
           echo ""
@@ -98,7 +105,7 @@ jobs:
           echo "============================================================"
 
       # ============================================================
-      # PASO 6: Ejecutar OpenCode con la instrucción y contexto
+      # PASO 7: Ejecutar OpenCode con contexto
       # ============================================================
       - name: 🤖 Run OpenCode with context
         uses: anomalyco/opencode/github@latest
@@ -127,10 +134,10 @@ jobs:
             ============================================================
             1. ACTUALIZA .opencode/current_context.md con el NUEVO estado del proyecto.
             2. AÑADE esta instrucción al historial en .opencode/prompts/historial-completo.md.
-            3. Si creaste archivos, asegúrate de que queden guardados.
+            3. Si creaste o modificaste archivos, asegúrate de que queden guardados.
 
       # ============================================================
-      # PASO 7: Guardar el estado actualizado
+      # PASO 8: Guardar estado y contexto
       # ============================================================
       - name: 💾 Save session state
         run: |
@@ -179,13 +186,12 @@ jobs:
           echo "📋 RESUMEN DE LA SESIÓN"
           echo "============================================================"
           echo "📂 Sesión guardada en: $SESSION_FILE"
-          echo "📝 Historial actualizado: .opencode/prompts/historial-completo.md"
-          echo "📖 Contexto actual: .opencode/current_context.md"
-          echo "✅ Estado guardado correctamente"
+          echo "📝 Historial: .opencode/prompts/historial-completo.md"
+          echo "📖 Contexto: .opencode/current_context.md"
           echo "============================================================"
 
       # ============================================================
-      # PASO 8: Finalizar y mostrar resumen
+      # PASO 9: Finalizar
       # ============================================================
       - name: ✅ Workflow completed
         run: |
@@ -201,5 +207,5 @@ jobs:
           echo "📖 Para continuar en la próxima sesión:"
           echo "   1. Ejecuta este workflow nuevamente"
           echo "   2. Escribe tu nueva instrucción"
-          echo "   3. OpenCode leerá el contexto guardado y continuará"
+          echo "   3. OpenCode leerá el contexto guardado"
           echo "============================================================"
