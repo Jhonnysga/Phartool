@@ -55,7 +55,17 @@ jobs:
           echo "✅ OmniRoute iniciado en http://localhost:20128"
 
       # ============================================================
-      # PASO 5: Cargar contexto actual
+      # PASO 5: ELIMINAR cualquier archivo de configuración corrupto
+      # ============================================================
+      - name: 🗑️ Remove old config
+        run: |
+          echo "⏳ Eliminando archivos de configuración previos..."
+          rm -f ~/.config/opencode/opencode.json
+          rm -f ~/.opencode/config.json
+          echo "✅ Archivos de configuración eliminados"
+
+      # ============================================================
+      # PASO 6: Cargar contexto actual
       # ============================================================
       - name: 📖 Load current context
         run: |
@@ -91,7 +101,7 @@ jobs:
           echo ""
 
       # ============================================================
-      # PASO 6: Ejecutar OpenCode con contexto (usando variables de entorno)
+      # PASO 7: Ejecutar OpenCode con contexto (solo variables de entorno)
       # ============================================================
       - name: 🤖 Run OpenCode with context
         uses: anomalyco/opencode/github@latest
@@ -100,6 +110,8 @@ jobs:
           # Configurar OpenCode para usar la API de OpenAI (apuntando a OmniRoute)
           OPENAI_API_BASE: http://localhost:20128/v1
           OPENAI_API_KEY: sk_omniroute
+          # Desactivar la lectura de archivos de configuración
+          OPENCODE_IGNORE_CONFIG: true
         with:
           model: openai/gpt-4  # OmniRoute redirigirá a su mejor modelo gratuito
           prompt: |
@@ -117,7 +129,7 @@ jobs:
             2. AÑADE esta instrucción al historial en .opencode/prompts/historial-completo.md.
 
       # ============================================================
-      # PASO 7: Guardar estado y contexto
+      # PASO 8: Guardar estado y contexto
       # ============================================================
       - name: 💾 Save session state
         run: |
@@ -171,7 +183,7 @@ jobs:
           echo "============================================================"
 
       # ============================================================
-      # PASO 8: Finalizar
+      # PASO 9: Finalizar
       # ============================================================
       - name: ✅ Workflow completed
         run: |
