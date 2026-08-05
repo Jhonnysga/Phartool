@@ -1,8 +1,15 @@
+
 name: Build Pharmatools Tag APK
 
 on:
   push:
     branches: [ main, master ]
+    # ⬇️ IGNORA cambios que no afectan la APK
+    paths-ignore:
+      - '.opencode/**'
+      - '**.md'
+      - '**.txt'
+      - '.github/workflows/opencode.yml'
   workflow_dispatch:
 
 jobs:
