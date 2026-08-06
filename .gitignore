@@ -1,0 +1,29 @@
+# Gradle
+.gradle/
+**/build/
+
+# Local configuration (contiene credenciales / rutas locales)
+local.properties
+*.properties.local
+
+# Kotlin
+.kotlin/
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Keystores y archivos sensibles
+*.keystore
+*.jks
+*.p12
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

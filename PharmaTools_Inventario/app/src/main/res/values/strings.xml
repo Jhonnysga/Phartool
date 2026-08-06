@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">PharmaTools Inventario</string>
+    <string name="inventario">Inventario</string>
+    <string name="buscar">Buscar producto…</string>
+    <string name="sin_productos">No hay productos. Toca + para agregar.</string>
+    <string name="agregar_producto">Agregar producto</string>
+    <string name="editar_producto">Editar producto</string>
+    <string name="escanear">Escanear</string>
+    <string name="cancelar">Cancelar</string>
+    <string name="guardar">Guardar</string>
+    <string name="eliminar">Eliminar</string>
+    <string name="codigo">Código de barras</string>
+    <string name="nombre">Nombre</string>
+    <string name="categoria">Categoría</string>
+    <string name="cantidad">Cantidad</string>
+    <string name="minimo">Mínimo</string>
+    <string name="precio">Precio</string>
+    <string name="codigo_vacio">Ingresa un código de barras</string>
+    <string name="nombre_vacio">Ingresa un nombre</string>
+    <string name="sin_escaner">El escáner de códigos no está disponible en este dispositivo.</string>
+</resources>
