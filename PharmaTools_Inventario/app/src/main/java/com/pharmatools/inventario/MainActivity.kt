@@ -59,7 +59,7 @@ class MainActivity : AppCompatActivity() {
         val options = GmsBarcodeScannerOptions.Builder()
             .enableAutoZoom()
             .build()
-        scanner = GmsBarcodeScanning.getScanner(this, options)
+        scanner = GmsBarcodeScanning.getClient(this, options)
     }
 
     private fun setupFabs() {
