@@ -8,9 +8,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.LiveData
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.google.android.gms.scanner.codescanner.GmsBarcodeScanner
-import com.google.android.gms.scanner.codescanner.GmsBarcodeScannerOptions
-import com.google.android.gms.scanner.codescanner.GmsBarcodeScanning
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanner
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import com.pharmatools.inventario.data.AppDatabase
 import com.pharmatools.inventario.data.Product
 import com.pharmatools.inventario.data.ProductRepository
