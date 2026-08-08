@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@color/fondo_general">
+    <TextView
+        android:id="@+id/tvEstado"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Escanea o busca un producto"
+        android:textSize="18sp"
+        android:textColor="@color/texto_principal"
+        android:layout_marginBottom="16dp" />
+    <EditText
+        android:id="@+id/etBusqueda"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="🔍 Buscar por nombre o código..."
+        android:inputType="text"
+        android:layout_marginBottom="8dp" />
+    <ListView
+        android:id="@+id/lvResultados"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:visibility="gone" />
+    <Button
+        android:id="@+id/btnEscanearControl"
+        style="@style/ButtonStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="📷 Escanear código"
+        android:layout_marginBottom="8dp" />
+    <TextView
+        android:id="@+id/tvDescripcion"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:textColor="@color/texto_principal"
+        android:layout_marginBottom="8dp" />
+    <TextView
+        android:id="@+id/tvPrecio"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:textColor="@color/texto_principal"
+        android:layout_marginBottom="16dp" />
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+        <Button
+            android:id="@+id/btnOk"
+            style="@style/ButtonSecondary"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="✅ OK (verificado)"
+            android:enabled="false" />
+        <Button
+            android:id="@+id/btnImprimir"
+            style="@style/ButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🏷️ Imprimir precio"
+            android:enabled="false"
+            android:layout_marginStart="8dp" />
+        <Button
+            android:id="@+id/btnGenerarCodigo"
+            style="@style/ButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📦 Crear código"
+            android:enabled="false"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
+    <Button
+        android:id="@+id/btnVolverControl"
+        style="@style/ButtonSecondary"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="🔙 Volver al menú" />
+</LinearLayout>

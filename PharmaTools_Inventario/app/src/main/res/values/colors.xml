@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary">#00695C</color>
-    <color name="primary_dark">#00352F</color>
-    <color name="accent">#FFB300</color>
-    <color name="white">#FFFFFF</color>
-    <color name="black">#000000</color>
-    <color name="fondo">#F5F5F5</color>
-    <color name="bajo_stock">#D32F2F</color>
-    <color name="stock_ok">#2E7D32</color>
-    <color name="icon_bg">#E0F2F1</color>
+    <color name="color_principal">#38B2AC</color>
+    <color name="color_principal_oscuro">#2C9C96</color>
+    <color name="color_principal_claro">#E6F7F6</color>
+    <color name="fondo_general">#F8F9FA</color>
+    <color name="fondo_tarjeta">#FFFFFF</color>
+    <color name="texto_principal">#212529</color>
+    <color name="texto_secundario">#6C757D</color>
+    <color name="primaryDarkColor">@color/color_principal_oscuro</color>
+    <color name="primaryColor">@color/color_principal</color>
+    <color name="accentColor">@color/color_principal</color>
+    <color name="backgroundColor">@color/fondo_general</color>
+    <color name="surfaceColor">@color/fondo_tarjeta</color>
 </resources>

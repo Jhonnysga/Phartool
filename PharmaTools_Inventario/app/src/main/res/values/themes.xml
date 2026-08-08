@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.PharmaToolsInventario" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/primary</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSecondary">@color/accent</item>
-        <item name="android:statusBarColor">@color/primary_dark</item>
+    <style name="Theme.PharmatoolsTag" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@color/color_principal_oscuro</item>
+        <item name="colorPrimary">@color/color_principal</item>
+        <item name="colorPrimaryVariant">@color/color_principal_oscuro</item>
+        <item name="colorSecondary">@color/color_principal</item>
+        <item name="colorAccent">@color/color_principal</item>
+        <item name="android:colorBackground">@color/fondo_general</item>
+        <item name="colorSurface">@color/fondo_tarjeta</item>
+        <item name="android:textColorPrimary">@color/texto_principal</item>
+        <item name="android:textColorSecondary">@color/texto_secundario</item>
     </style>
 </resources>

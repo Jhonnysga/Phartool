@@ -1,140 +1,99 @@
 package com.pharmatools.inventario
 
+import android.app.ProgressDialog
+import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Bundle
+import android.widget.Button
+import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.viewModels
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.widget.doAfterTextChanged
-import androidx.lifecycle.LiveData
-import androidx.recyclerview.widget.LinearLayoutManager
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanner
-import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
-import com.pharmatools.inventario.data.AppDatabase
-import com.pharmatools.inventario.data.Product
-import com.pharmatools.inventario.data.ProductRepository
-import com.pharmatools.inventario.databinding.ActivityMainBinding
-import com.pharmatools.inventario.databinding.DialogProductBinding
-import com.pharmatools.inventario.ui.InventoryViewModel
-import com.pharmatools.inventario.ui.ProductAdapter
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityMainBinding
-    private lateinit var adapter: ProductAdapter
-    private var activeObserver: LiveData<List<Product>>? = null
-    private lateinit var scanner: GmsBarcodeScanner
-
-    private val viewModel: InventoryViewModel by viewModels {
-        InventoryViewModel.Factory(ProductRepository(AppDatabase.getInstance(this).productDao()))
-    }
+    private lateinit var dbHelper: DatabaseHelper
+    private lateinit var prefs: SharedPreferences
+    private lateinit var tvUltimaActualizacion: TextView
+    private lateinit var btnSincronizar: Button
+    private lateinit var btnControl: Button
+    private lateinit var btnDirecto: Button
+    private lateinit var btnConfig: Button
+    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContentView(R.layout.activity_main)
 
-        setupList()
-        setupSearch()
-        setupScanner()
-        setupFabs()
+        dbHelper = DatabaseHelper(this)
+        prefs = getSharedPreferences("PharmatoolsPrefs", MODE_PRIVATE)
+        tvUltimaActualizacion = findViewById(R.id.tvUltimaActualizacion)
+        btnSincronizar = findViewById(R.id.btnSincronizar)
+        btnControl = findViewById(R.id.btnControlEtiquetado)
+        btnDirecto = findViewById(R.id.btnEtiquetado)
+        btnConfig = findViewById(R.id.btnConfiguracion)
 
-        observeList(viewModel.products)
-    }
+        btnSincronizar.setOnClickListener { sincronizarProductos(true) }
+        btnControl.setOnClickListener { startActivity(Intent(this, ControlEtiquetadoActivity::class.java)) }
+        btnDirecto.setOnClickListener { startActivity(Intent(this, EtiquetadoDirectoActivity::class.java)) }
+        btnConfig.setOnClickListener { startActivity(Intent(this, ConfiguracionActivity::class.java)) }
 
-    private fun setupList() {
-        adapter = ProductAdapter { product -> showProductDialog(product) }
-        binding.recyclerView.layoutManager = LinearLayoutManager(this)
-        binding.recyclerView.adapter = adapter
-    }
-
-    private fun setupSearch() {
-        binding.searchInput.doAfterTextChanged { text ->
-            observeList(viewModel.search(text.toString()))
-        }
-    }
-
-    private fun setupScanner() {
-        val options = GmsBarcodeScannerOptions.Builder()
-            .enableAutoZoom()
-            .build()
-        scanner = GmsBarcodeScanning.getClient(this, options)
-    }
-
-    private fun setupFabs() {
-        binding.fabAdd.setOnClickListener { showProductDialog(null) }
-        binding.fabScan.setOnClickListener { launchScanner() }
-    }
-
-    private fun observeList(products: LiveData<List<Product>>) {
-        activeObserver?.removeObservers(this)
-        activeObserver = products
-        products.observe(this) { list ->
-            adapter.submitList(list.orEmpty())
-        }
-    }
-
-    private fun launchScanner() {
-        scanner.startScan()
-            .addOnSuccessListener { barcode ->
-                barcode.rawValue?.let(::openScannedCode)
-            }
-            .addOnCanceledListener { }
-            .addOnFailureListener { toast(getString(R.string.sin_escaner)) }
-    }
-
-    private fun openScannedCode(code: String) {
-        val existing = adapter.currentList.firstOrNull { it.code == code }
-        if (existing != null) {
-            showProductDialog(existing)
+        mostrarUltimaActualizacion()
+        if (dbHelper.getCantidadProductos() == 0) {
+            sincronizarProductos(true)
         } else {
-            binding.searchInput.setText(code)
-            showProductDialog(null)
-        }
-    }
-
-    private fun showProductDialog(product: Product?) {
-        val dialogBinding = DialogProductBinding.inflate(layoutInflater)
-        product?.let {
-            dialogBinding.etCode.setText(it.code)
-            dialogBinding.etName.setText(it.name)
-            dialogBinding.etCategory.setText(it.category)
-            dialogBinding.etQty.setText(it.quantity.toString())
-            dialogBinding.etMin.setText(it.minQuantity.toString())
-            dialogBinding.etPrice.setText(it.price.toString())
-        }
-
-        val builder = AlertDialog.Builder(this)
-            .setTitle(if (product == null) R.string.agregar_producto else R.string.editar_producto)
-            .setView(dialogBinding.root)
-            .setNegativeButton(R.string.cancelar, null)
-            .setPositiveButton(R.string.guardar) { _, _ ->
-                saveFrom(dialogBinding, product)
-            }
-
-        if (product != null) {
-            builder.setNeutralButton(R.string.eliminar) { _, _ ->
-                viewModel.deleteProduct(product.code)
+            val ultima = prefs.getLong("ultima_sincronizacion", 0)
+            if (System.currentTimeMillis() - ultima > 24 * 60 * 60 * 1000) {
+                sincronizarProductos(false)
             }
         }
-        builder.show()
     }
 
-    private fun saveFrom(dialogBinding: DialogProductBinding, product: Product?) {
-        val code = dialogBinding.etCode.text?.toString()?.trim().orEmpty()
-        val name = dialogBinding.etName.text?.toString()?.trim()
-        val category = dialogBinding.etCategory.text?.toString()?.trim().orEmpty()
-        val qty = dialogBinding.etQty.text?.toString()?.toIntOrNull() ?: 0
-        val min = dialogBinding.etMin.text?.toString()?.toIntOrNull() ?: 0
-        val price = dialogBinding.etPrice.text?.toString()?.toDoubleOrNull() ?: 0.0
+    private fun sincronizarProductos(mostrarDialogo: Boolean) {
+        val progress: ProgressDialog? = if (mostrarDialogo) {
+            ProgressDialog(this).apply {
+                setTitle("Sincronizando")
+                setMessage("Descargando catálogo...")
+                setProgressStyle(ProgressDialog.STYLE_SPINNER)
+                setCancelable(false)
+                show()
+            }
+        } else null
 
-        when {
-            code.isEmpty() -> toast(getString(R.string.codigo_vacio))
-            name.isNullOrBlank() -> toast(getString(R.string.nombre_vacio))
-            else -> viewModel.saveProduct(code, name, category, qty, min, price)
+        executor.execute {
+            try {
+                val productos = ApiClient(this).obtenerTodosProductos()
+                dbHelper.sincronizarProductos(productos)
+                prefs.edit().putLong("ultima_sincronizacion", System.currentTimeMillis()).apply()
+                runOnUiThread {
+                    progress?.dismiss()
+                    mostrarUltimaActualizacion()
+                    Toast.makeText(this, "✅ ${productos.size} productos sincronizados", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    progress?.dismiss()
+                    Toast.makeText(this, "❌ Error: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 
-    private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    private fun mostrarUltimaActualizacion() {
+        val fecha = prefs.getLong("ultima_sincronizacion", 0)
+        tvUltimaActualizacion.text = if (fecha == 0L) {
+            "📅 Última actualización: Nunca"
+        } else {
+            "📅 Última actualización: " + SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date(fecha))
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        executor.shutdown()
+    }
 }

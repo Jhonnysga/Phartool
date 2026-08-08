@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@color/fondo_general">
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="⚙️ Configuración Avanzada"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="@color/color_principal"
+        android:layout_marginBottom="24dp" />
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="📍 Selecciona la sede"
+        android:textSize="16sp"
+        android:textColor="@color/texto_principal"
+        android:layout_marginBottom="8dp" />
+    <Spinner
+        android:id="@+id/spinnerSede"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp" />
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="📡 MAC de la impresora"
+        android:textSize="16sp"
+        android:textColor="@color/texto_principal"
+        android:layout_marginBottom="8dp" />
+    <EditText
+        android:id="@+id/etMacImpresora"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Ej: 60:8A:10:19:48:B4"
+        android:inputType="text"
+        android:layout_marginBottom="16dp" />
+    <Button
+        android:id="@+id/btnGuardarConfig"
+        style="@style/ButtonStyle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="💾 Guardar configuración"
+        android:layout_marginBottom="16dp" />
+    <Button
+        android:id="@+id/btnVolverConfig"
+        style="@style/ButtonSecondary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🔙 Volver al menú" />
+</LinearLayout>
